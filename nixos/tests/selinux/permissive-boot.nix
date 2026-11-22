@@ -73,10 +73,15 @@
 
     with subtest("store content carries the intended types"):
         systemd = machine.succeed("readlink -f /run/current-system/systemd").strip()
-        assert setype(f"{systemd}/lib/systemd/systemd") == "init_exec_t"
-        assert setype(machine.succeed("readlink -f /run/current-system/sw/bin/ls").strip()) == "bin_t"
-        assert setype(machine.succeed("readlink -f /etc/systemd/system").strip()) == "systemd_unit_t"
-        assert setype(machine.succeed("readlink -f /etc/os-release").strip()) == "etc_t"
+        for path, expected in [
+            (f"{systemd}/lib/systemd/systemd", "init_exec_t"),
+            (machine.succeed("readlink -f /run/current-system/sw/bin/ls").strip(), "bin_t"),
+            (machine.succeed("readlink -f /etc/systemd/system").strip(), "systemd_unit_t"),
+            (machine.succeed("readlink -f /etc/os-release").strip(), "etc_t"),
+            (machine.succeed("readlink -f /etc/static").strip(), "etc_t"),
+        ]:
+            actual = setype(path)
+            assert actual == expected, f"{path}: {actual}, expected {expected}"
 
     with subtest("files created by activation and at boot are labelled"):
         for path, expected in [

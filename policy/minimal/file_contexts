@@ -31,6 +31,7 @@
 /nix/store(/.*)?	system_u:object_r:nix_store_t:s0
 /nix/store/[^/]+/share(/.*)?	system_u:object_r:usr_t:s0
 /nix/store/[^/]+/etc(/.*)?	system_u:object_r:etc_t:s0
+/nix/store/[^/]+-etc(-[^/]+)?(/.*)?	system_u:object_r:etc_t:s0
 /nix/store/[^/]+/lib(32|64)?(/.*)?	system_u:object_r:lib_t:s0
 /nix/store/[^/]+/libexec(/.*)?	system_u:object_r:bin_t:s0
 /nix/store/[^/]+/s?bin(/.*)?	system_u:object_r:bin_t:s0
