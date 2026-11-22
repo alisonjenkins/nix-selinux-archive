@@ -210,3 +210,70 @@
 (genfscon nfs / (system_u object_r foreignfs_t ((s0) (s0))))
 (genfscon nfs4 / (system_u object_r foreignfs_t ((s0) (s0))))
 (genfscon cifs / (system_u object_r foreignfs_t ((s0) (s0))))
+
+; --- Confinement ----------------------------------------------------------------
+
+; Types a confined domain may read and execute: the store and /etc.
+(typeattribute readable_type)
+(typeattributeset readable_type
+  (root_t etc_t bin_t lib_t usr_t nix_store_t systemd_unit_t init_exec_t))
+
+; Declares `t` as a confined domain: one that starts with only what almost
+; any program needs, and nothing else.
+;
+;   (type myservice_t)
+;   (call confined_domain (myservice_t))
+;
+; A service enters it with `SELinuxContext=system_u:system_r:myservice_t:s0`.
+; The module that declares the domain then adds the access the service
+; really needs. Everything not granted is denied, including reading /var,
+; /home, /root and /run, writing anywhere, and using the network.
+(macro confined_domain ((type t))
+  (roletype system_r t)
+
+  ; The unconfined domains stay unconfined with respect to it. This is what
+  ; lets systemd start, signal and stop the service.
+  (allow domain t (all_classes (any)))
+
+  ; Its own processes, descriptors, pipes and /proc/self.
+  (allow t self (process (fork sigchld sigkill sigstop signull signal getsched setsched getsession getpgid setpgid getcap getattr setrlimit)))
+  (allow t self (fd (use)))
+  (allow t self (fifo_file (ioctl read write getattr lock append open)))
+  (allow t self (file (ioctl read write getattr lock append open)))
+  (allow t self (dir (ioctl read getattr lock search open)))
+  (allow t self (lnk_file (read getattr)))
+  (allow t self (unix_stream_socket (create connect read write getattr setattr getopt setopt shutdown ioctl bind listen accept)))
+  (allow t self (unix_dgram_socket (create connect read write getattr setattr getopt setopt shutdown ioctl bind sendto)))
+
+  ; Descriptors inherited from whatever started it, and reporting back.
+  (allow t domain (fd (use)))
+  (allow t domain (process (sigchld)))
+  (allow t domain (fifo_file (ioctl read write getattr append)))
+
+  ; Standard output and error, connected to the journal by systemd.
+  (allow t domain (unix_stream_socket (ioctl read write getattr append connectto)))
+  (allow t domain (unix_dgram_socket (ioctl read write getattr sendto)))
+
+  ; Read and execute the store and /etc.
+  (allow t readable_type (dir (ioctl read getattr lock search open)))
+  (allow t readable_type (file (ioctl read getattr lock map execute execute_no_trans entrypoint open)))
+  (allow t readable_type (lnk_file (read getattr)))
+
+  ; Find its way through /run to the store, without reading /run itself.
+  (allow t var_run_t (dir (getattr search)))
+  (allow t var_run_t (lnk_file (read getattr)))
+
+  ; /dev/null, /dev/urandom and friends.
+  (allow t device_t (dir (getattr search)))
+  (allow t device_t (lnk_file (read getattr)))
+  (allow t device_t (chr_file (ioctl read write getattr append open)))
+
+  ; Kernel information.
+  (allow t proc_t (dir (ioctl read getattr lock search open)))
+  (allow t proc_t (file (ioctl read getattr open)))
+  (allow t proc_t (lnk_file (read getattr)))
+  (allow t sysfs_t (dir (ioctl read getattr lock search open)))
+  (allow t sysfs_t (file (ioctl read getattr open)))
+  (allow t sysfs_t (lnk_file (read getattr)))
+  (allow t fs_t (filesystem (getattr)))
+  (allow t tmpfs_t (filesystem (getattr))))

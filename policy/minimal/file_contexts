@@ -29,6 +29,8 @@
 # a package can produce content that matches them. They therefore only hand
 # out types that carry no privilege.
 /nix/store(/.*)?	system_u:object_r:nix_store_t:s0
+/nix/store/[^/]+-unit-[^/]+(/.*)?	system_u:object_r:systemd_unit_t:s0
+/nix/store/[^/]+-(system|user)-units(/.*)?	system_u:object_r:systemd_unit_t:s0
 /nix/store/[^/]+/share(/.*)?	system_u:object_r:usr_t:s0
 /nix/store/[^/]+/etc(/.*)?	system_u:object_r:etc_t:s0
 /nix/store/[^/]+-etc(-[^/]+)?(/.*)?	system_u:object_r:etc_t:s0
@@ -36,5 +38,3 @@
 /nix/store/[^/]+/libexec(/.*)?	system_u:object_r:bin_t:s0
 /nix/store/[^/]+/s?bin(/.*)?	system_u:object_r:bin_t:s0
 /nix/store/[^/]+/(etc|lib|share)/systemd/(system|user|network)(/.*)?	system_u:object_r:systemd_unit_t:s0
-/nix/store/[^/]+-unit-[^/]+(/.*)?	system_u:object_r:systemd_unit_t:s0
-/nix/store/[^/]+-(system|user)-units(/.*)?	system_u:object_r:systemd_unit_t:s0
