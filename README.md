@@ -2,11 +2,11 @@
 
 A prototype of SELinux support for NixOS, developed with the aim of contributing it to nixpkgs.
 
-**Status**: early setup. Nothing here is ready to use on a real machine.
+**Status**: prototype. In VM tests a NixOS system boots in permissive and in enforcing mode with a small unconfined-by-default policy, a fully labelled store, working SSH and Nix builds, and one confined demo service whose forbidden access is denied. It has not been tried on a real machine and the policy is not yet a hardening policy.
 
 ## Approach
 
-- No changes to Nix. The NixOS module labels the running system's closure from outside Nix.
+- No changes to Nix. The NixOS module labels the store from outside Nix.
 - Privileged labels go only to exact store paths named by the system configuration.
 - Policy is built in a derivation and switches and rolls back with system generations.
 - Every milestone is proven by a NixOS VM test.
