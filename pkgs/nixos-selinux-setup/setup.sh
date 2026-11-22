@@ -21,6 +21,7 @@ policy=
 spec=
 rev=
 remounted=
+relabel_mutable=
 exact=()
 relabel=()
 
@@ -32,6 +33,7 @@ while [ $# -gt 0 ]; do
     --exact) exact+=("$2"); shift 2 ;;
     --relabel) relabel+=("$2"); shift 2 ;;
     --remounted) remounted=1; shift ;;
+    --relabel-mutable) relabel_mutable=1; shift ;;
     *) echo "unknown argument: $1" >&2; exit 64 ;;
   esac
 done
@@ -70,13 +72,24 @@ label_one() {
 # --- Mutable paths ------------------------------------------------------------
 
 # Top-level directories, every time. New files take their parent
-# directory's type, so this alone gets most of activation's output right.
+# directory's type, so this alone gets most of what activation creates
+# right. On a fresh root some of them do not exist yet. Stage 2 and
+# activation would create them a moment later, with these same modes, but
+# then they would inherit the root directory's type.
+[ -d /etc ] || install -d -m 0755 /etc
+[ -d /var ] || install -d -m 0755 /var
+[ -d /home ] || install -d -m 0755 /home
+[ -d /root ] || install -d -m 0700 /root
+[ -d /tmp ] || install -d -m 1777 /tmp
 for dir in / /etc /var /nix /nix/var "$store" /home /root /tmp /boot /bin /usr /usr/bin; do
   if [ -d "$dir" ]; then label_one "$dir"; fi
 done
 
-# A full pass over the mutable paths only when the labelling rules changed.
-if [ "$(cat "$stateDir/relabelled" 2>/dev/null || true)" != "$rev" ]; then
+# A full pass over the mutable paths, when asked to and only if the
+# labelling rules changed since the last one. This runs after activation,
+# so it also corrects what inheritance alone got wrong.
+if [ -n "$relabel_mutable" ] \
+  && [ "$(cat "$stateDir/relabelled" 2>/dev/null || true)" != "$rev" ]; then
   existing=()
   for path in "${relabel[@]}"; do
     if [ -e "$path" ]; then existing+=("$path"); fi
@@ -88,8 +101,6 @@ if [ "$(cat "$stateDir/relabelled" 2>/dev/null || true)" != "$rev" ]; then
   mkdir -p "$stateDir"
   echo "$rev" > "$stateDir/relabelled.tmp"
   mv "$stateDir/relabelled.tmp" "$stateDir/relabelled"
-  label_one /var/lib
-  setfiles -F "$spec" "$stateDir"
 fi
 
 # --- Nix store ----------------------------------------------------------------

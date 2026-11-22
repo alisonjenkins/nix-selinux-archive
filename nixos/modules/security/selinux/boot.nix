@@ -24,7 +24,8 @@ let
           lib.attrValues cfg.entrypoints
         )
       } \
-      ${lib.concatMapStringsSep " " (p: "--relabel ${lib.escapeShellArg p}") cfg.relabelPaths}
+      ${lib.concatMapStringsSep " " (p: "--relabel ${lib.escapeShellArg p}") cfg.relabelPaths} \
+      "$@"
   '';
 in
 {
@@ -98,13 +99,35 @@ in
       '';
     };
 
+    # After activation: restore labels on the mutable paths if the rules
+    # changed. On first boot this covers what activation just created.
+    systemd.services.selinux-relabel = {
+      description = "Restore SELinux Labels on Mutable Paths";
+      unitConfig = {
+        DefaultDependencies = false;
+        ConditionSecurity = "selinux";
+      };
+      wantedBy = [ "sysinit.target" ];
+      after = [ "local-fs.target" ];
+      before = [
+        "sysinit.target"
+        "shutdown.target"
+      ];
+      conflicts = [ "shutdown.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = "${setup} --relabel-mutable";
+      };
+    };
+
     # On switch: label store paths that arrived with the new generation and
     # load its policy, before any of its services start.
     system.activationScripts.selinux = {
       deps = [ "etc" ];
       text = ''
         if [ "''${IN_NIXOS_SYSTEMD_STAGE1:-}" != true ] && [ -e /sys/fs/selinux/load ]; then
-          ${setup}
+          ${setup} --relabel-mutable
           if [ "$(tr -d '\0' < /proc/self/attr/current)" != kernel ]; then
             ${lib.getExe' pkgs.policycoreutils "load_policy"}
           fi
