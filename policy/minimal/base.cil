@@ -106,6 +106,9 @@
 
 (allow domain base_type (all_classes (any)))
 
+; Any of these types may label an object on any of these filesystems.
+(allow base_type base_type (filesystem (associate)))
+
 ; --- Domain transitions -------------------------------------------------------
 
 ; The initrd's systemd runs as kernel_t. When it hands over to the real

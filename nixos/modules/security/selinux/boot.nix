@@ -81,13 +81,16 @@ in
         mountpoint -q /sys/fs/selinux || mount -t selinuxfs selinuxfs /sys/fs/selinux
 
         # The setup tool lives in the new root and needs these there. They
-        # are unmounted again because stage 2 mounts its own.
+        # are fresh mounts, not binds of the initrd's own: unmounting a bind
+        # of /sys would propagate back and take the initrd's cgroup mounts
+        # with it. They are removed again because stage 2 mounts its own.
         mkdir -p /sysroot/proc /sysroot/sys /sysroot/dev
         mount -t proc proc /sysroot/proc
-        mount --rbind /sys /sysroot/sys
-        mount --rbind /dev /sysroot/dev
+        mount -t sysfs sysfs /sysroot/sys
+        mount -t selinuxfs selinuxfs /sysroot/sys/fs/selinux
+        mount -t devtmpfs devtmpfs /sysroot/dev
         cleanup() {
-          umount -R /sysroot/dev /sysroot/sys /sysroot/proc
+          umount /sysroot/dev /sysroot/sys/fs/selinux /sysroot/sys /sysroot/proc
         }
         trap cleanup EXIT
 
