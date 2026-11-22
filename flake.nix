@@ -26,6 +26,11 @@
         secilc = final.callPackage ./pkgs/secilc { };
       };
 
+      nixosModules = {
+        selinux = ./nixos/modules/security/selinux;
+        default = self.nixosModules.selinux;
+      };
+
       packages = forAllSystems (system: {
         inherit (pkgsFor system) secilc;
       });
@@ -40,11 +45,22 @@
             root = ./.;
             fileset = lib.fileset.fileFilter (file: file.hasExt "nix") ./.;
           };
+          evalChecks = lib.mapAttrs' (name: lib.nameValuePair "selinux-eval-${name}") (
+            pkgs.callPackage ./nixos/tests/selinux/eval.nix {
+              inherit (lib) nixosSystem;
+              selinuxModule = self.nixosModules.selinux;
+            }
+          );
         in
-        {
+        evalChecks
+        // {
           inherit (pkgs) secilc;
 
           selinux-smoke = pkgs.testers.runNixOSTest ./nixos/tests/selinux/smoke.nix;
+
+          selinux-no-policy = pkgs.testers.runNixOSTest (
+            import ./nixos/tests/selinux/no-policy.nix { selinuxModule = self.nixosModules.selinux; }
+          );
 
           formatting = pkgs.runCommand "check-formatting" { nativeBuildInputs = [ pkgs.nixfmt ]; } ''
             find ${nixFiles} -name '*.nix' -print0 | xargs -0 nixfmt --check

@@ -21,12 +21,12 @@
 
 ## Phase 2: Foundational (blocks all stories)
 
-- [ ] T008 Write option declarations and assertions in `nixos/modules/security/selinux/default.nix` per contracts/nixos-options.md, including the AppArmor exclusion and a check that the kernel has `SECURITY_SELINUX`
-- [ ] T009 [P] Write `nixos/tests/selinux/disabled-noop.nix`: a system with the module imported but disabled has the same closure as one without it
-- [ ] T010 [P] Write an evaluation test that enabling SELinux and AppArmor together fails with the expected message
-- [ ] T011 Add `selinux` to `security.lsm` and the needed kernel parameters in `default.nix`, and check how the open `security=` assertion issue (#510901) affects it
-- [ ] T012 Write `nixos/modules/security/selinux/userland.nix`: systemd with `withSelinux`, coreutils with `selinuxSupport`, tools in `environment.systemPackages`
-- [ ] T013 Confirm the system builds with those overrides and record the rebuild cost of SELinux-enabled systemd
+- [x] T008 Write option declarations and assertions in `nixos/modules/security/selinux/default.nix` per contracts/nixos-options.md, including the AppArmor exclusion and a check that the kernel has `SECURITY_SELINUX`
+- [x] T009 [P] Write `nixos/tests/selinux/disabled-noop.nix`: a system with the module imported but disabled has the same closure as one without it
+- [x] T010 [P] Write an evaluation test that enabling SELinux and AppArmor together fails with the expected message
+- [x] T011 Add `selinux` to `security.lsm` and the needed kernel parameters in `default.nix`, and check how the open `security=` assertion issue (#510901) affects it
+- [x] T012 Write `nixos/modules/security/selinux/userland.nix`: systemd with `withSelinux`, coreutils with `selinuxSupport`, tools in `environment.systemPackages`
+- [x] T013 Confirm the system builds with those overrides and record the rebuild cost of SELinux-enabled systemd
 
 **Checkpoint**: A system with the option enabled builds. It does not yet load a policy.
 
@@ -54,7 +54,7 @@
 - [ ] T024 [US1] Write `nixos/modules/security/selinux/boot.nix` for the systemd initrd: a unit that loads the policy from the new root and labels the closure before the activation unit and before the store is made read-only
 - [ ] T025 [US1] Verify systemd in the real root detects the loaded policy and transitions to the init domain; fix labels or policy until T015 passes
 - [ ] T026 [US1] Add the mutable-path relabel unit to `boot.nix`, keyed on the policy's store path, covering `security.selinux.relabelPaths`
-- [ ] T027 [US1] Write the scripted stage 2 route: a patch to `stage-2-init.sh` that loads the policy and labels the closure before activation, applied through the flake; run T014 to T018 against both boot routes
+- [x] T027 ~~Scripted stage 2 route~~ Not needed: nixpkgs has removed the scripted initrd, so the systemd initrd is the only boot route
 - [ ] T028 [US1] Add `security.selinux.developmentTools` (analysis tools, audit daemon) to `default.nix`
 
 ### Measurements and open questions for User Story 1
