@@ -11,6 +11,14 @@ let
 
   setupTool = pkgs.callPackage ../../../../pkgs/nixos-selinux-setup { };
 
+  # Identifies the exact-path rules, so the store paths they apply to are
+  # relabelled when those rules change and not otherwise.
+  exactRevision = builtins.substring 0 32 (
+    builtins.hashString "sha256" (
+      lib.concatMapStrings (e: "${toString e.path}=${e.type}\n") (lib.attrValues cfg.entrypoints)
+    )
+  );
+
   policyFile = "${cfg.policy}/policy/policy.${toString cfg.policy.policyVersion}";
 
   # The setup tool with this system's policy and rules filled in.
@@ -19,6 +27,7 @@ let
       --policy ${policyFile} \
       --spec ${cfg.policy}/contexts/files/file_contexts \
       --rev ${cfg.labelRevision} \
+      --exact-rev ${exactRevision} \
       ${
         lib.concatMapStringsSep " " (e: "--exact ${lib.escapeShellArg (toString e.path)}") (
           lib.attrValues cfg.entrypoints

@@ -20,6 +20,7 @@ saved_args=("$@")
 policy=
 spec=
 rev=
+exact_rev=
 remounted=
 relabel_mutable=
 exact=()
@@ -30,6 +31,7 @@ while [ $# -gt 0 ]; do
     --policy) policy=$2; shift 2 ;;
     --spec) spec=$2; shift 2 ;;
     --rev) rev=$2; shift 2 ;;
+    --exact-rev) exact_rev=$2; shift 2 ;;
     --exact) exact+=("$2"); shift 2 ;;
     --relabel) relabel+=("$2"); shift 2 ;;
     --remounted) remounted=1; shift ;;
@@ -111,26 +113,38 @@ trap 'rm -rf "$work"' EXIT
 # Every top-level store path, except the hard-link farm of the optimiser.
 find "$store" -mindepth 1 -maxdepth 1 ! -name .links -print | sort > "$work/all"
 
+# Store paths that hold a file with an exact rule. Their labels depend on
+# those rules as well as on the generic ones.
+: > "$work/exact"
+for path in "${exact[@]}"; do
+  root=$(echo "$path" | cut -d/ -f1-4)
+  if [ -e "$root" ]; then echo "$root" >> "$work/exact"; fi
+done
+sort -u -o "$work/exact" "$work/exact"
+
 # Store paths already labelled under the current rules carry a marker on
 # their top-level inode. A path that is garbage collected and fetched again
 # is a new inode without a marker, so it is picked up again by itself.
 {
   xargs -a "$work/all" -d '\n' -r \
     getfattr -h --absolute-names -n "$marker" -e text 2>/dev/null || true
-} | awk -v want="$marker=\"$rev\"" '
+} | awk -v plain="$marker=\"$rev\"" -v full="$marker=\"$rev+$exact_rev\"" '
     /^# file: / { file = substr($0, 9) }
-    $0 == want { print file }
-  ' | sort > "$work/done"
+    $0 == plain { print file > "'"$work/plain"'" }
+    $0 == full { print file > "'"$work/full"'" }
+  '
+touch "$work/plain" "$work/full"
+sort -o "$work/plain" "$work/plain"
+sort -o "$work/full" "$work/full"
+
+# Done: marked under the generic rules and without exact rules, or marked
+# under both.
+{
+  comm -23 "$work/plain" "$work/exact"
+  comm -12 "$work/full" "$work/exact"
+} | sort > "$work/done"
 
 comm -23 "$work/all" "$work/done" > "$work/todo"
-
-# Paths with an exact rule are always redone. They are few, and their rules
-# change without the generic rules changing.
-for path in "${exact[@]}"; do
-  root=$(echo "$path" | cut -d/ -f1-4)
-  if [ -e "$root" ]; then echo "$root" >> "$work/todo"; fi
-done
-sort -u -o "$work/todo" "$work/todo"
 
 count=$(wc -l < "$work/todo")
 if [ "$count" -eq 0 ]; then
@@ -154,7 +168,11 @@ setfiles -F -f "$work/todo" "$spec"
 
 # Mark the paths only once all of them are labelled, so an interrupted run
 # is repeated in full.
-xargs -a "$work/todo" -d '\n' -r \
+comm -23 "$work/todo" "$work/exact" > "$work/mark-plain"
+comm -12 "$work/todo" "$work/exact" > "$work/mark-full"
+xargs -a "$work/mark-plain" -d '\n' -r \
   setfattr -h -n "$marker" -v "$rev" 2>/dev/null || true
+xargs -a "$work/mark-full" -d '\n' -r \
+  setfattr -h -n "$marker" -v "$rev+$exact_rev" 2>/dev/null || true
 
 log "labelled $count store paths in $(( $(date +%s) - start ))s"
