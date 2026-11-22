@@ -15,7 +15,7 @@
 - [x] T004 [P] Build the default NixOS kernel's config file and record its SELinux-related settings in research.md. Result: SELinux is already built in
 - [x] T005 ~~Define and build an SELinux-enabled kernel~~ Not needed, see T004. Replaced by a kernel-config assertion in T008
 - [x] T006 [P] Package `secilc` in `pkgs/secilc/default.nix` from the SELinux userspace source already used by nixpkgs
-- [ ] T007 Add VM test `nixos/tests/selinux/smoke.nix` that boots the stock kernel with `selinux` in `security.lsm` and checks SELinux is active with no policy loaded, to prove the harness
+- [x] T007 Add VM test `nixos/tests/selinux/smoke.nix` that boots the stock kernel with `selinux` in `security.lsm` and checks SELinux is active with no policy loaded, to prove the harness
 
 **Checkpoint**: `nix flake check` passes.
 
