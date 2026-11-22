@@ -19,7 +19,7 @@ Verified against nixpkgs master (commit f657589a, 2026-11-21):
 |---|---|
 | SELinux userspace | Packaged and maintained as `selinuxPackages` at 3.11 (libselinux, libsepol, libsemanage, policycoreutils, checkpolicy, setools, selinux-python). No `secilc` package. |
 | Policy | `selinux-refpolicy` 2.20250923 is packaged with `DISTRO=nixos`, but no refpolicy module reacts to `distro_nixos`, so the flag does nothing. Only `.pp` modules are built, not a loadable `policy.NN`. |
-| Kernel | `common-config.nix` does not enable `SECURITY_SELINUX`. AppArmor is built in and is the default major LSM. |
+| Kernel | **Corrected 2026-11-22 from the built config of the default kernel (6.18.64):** `SECURITY_SELINUX=y` is already set, along with `SECURITY_SELINUX_BOOTPARAM`, `SECURITY_SELINUX_DEVELOP`, `AUDIT`, `SECURITY_NETWORK`, `NETLABEL`, `EXT4_FS_SECURITY` and `TMPFS_XATTR`. `common-config.nix` does not mention it because it is picked up from kernel defaults. AppArmor is the default major LSM, and SELinux is inactive only because NixOS's `lsm=` parameter leaves it out. No kernel rebuild is needed. |
 | LSM selection | `security.lsm` exists and renders `lsm=...`. It asserts against `security=`. Open issue #510901 says that assertion misfires. |
 | NixOS module | None merged. Draft PR #396177 (`nixos/selinux: init`) has been open since April 2025 and is stalled. |
 | NixOS tests | None for SELinux. |
@@ -83,5 +83,5 @@ Upstream targets, in order: nixpkgs (small, default-off, tested pieces), refpoli
 ## 7. Caveats
 
 - Researchers could not use the GitHub API for the NixOS repositories, so PR and issue discussions were read through search results and page summaries. Comment content is paraphrased, and the contents of PRs #396177, #396168 and #591351 should be read directly before building on them.
-- Whether the default kernel truly lacks SELinux was inferred from the config source, not from a built `.config`.
+- The first version of this summary said the default kernel lacked SELinux. That was inferred from the config source and was wrong. The built `.config` has it enabled (see section 1).
 - The SELinux 3.12 features were read from the development branch and are not yet released.

@@ -9,19 +9,19 @@
 
 ## Phase 1: Setup (M0)
 
-- [ ] T001 Create the repository skeleton from plan.md and move `specs/` into it
-- [ ] T002 Write `flake.nix` with pinned nixpkgs unstable, `nixosModules.selinux`, `packages`, and `checks` wired to `nixos/tests/selinux/`
-- [ ] T003 [P] Add formatting and lint checks (`nixfmt`, `statix`, `shellcheck`) to `flake.nix` checks
-- [ ] T004 [P] Build the default NixOS kernel's config file and record whether `SECURITY_SELINUX`, `AUDIT`, `SECURITY_NETWORK` and xattr support for ext4 and tmpfs are set, in `docs/design.md`
-- [ ] T005 Define the SELinux-enabled kernel in `nixos/modules/security/selinux/default.nix` through structured config, build it once, and note the build time
-- [ ] T006 [P] Package `secilc` in `pkgs/secilc/default.nix` from the SELinux userspace source already used by nixpkgs
-- [ ] T007 Add a trivial VM test `nixos/tests/selinux/smoke.nix` that boots the SELinux kernel with the module absent, to prove the harness
+- [x] T001 Create the repository skeleton from plan.md and move `specs/` into it
+- [x] T002 Write `flake.nix` with pinned nixpkgs unstable, `nixosModules.selinux`, `packages`, and `checks` wired to `nixos/tests/selinux/`
+- [x] T003 [P] Add formatting and lint checks (`nixfmt`, `statix`) to `flake.nix` checks; `shellcheck` joins when the first shell script lands
+- [x] T004 [P] Build the default NixOS kernel's config file and record its SELinux-related settings in research.md. Result: SELinux is already built in
+- [x] T005 ~~Define and build an SELinux-enabled kernel~~ Not needed, see T004. Replaced by a kernel-config assertion in T008
+- [x] T006 [P] Package `secilc` in `pkgs/secilc/default.nix` from the SELinux userspace source already used by nixpkgs
+- [ ] T007 Add VM test `nixos/tests/selinux/smoke.nix` that boots the stock kernel with `selinux` in `security.lsm` and checks SELinux is active with no policy loaded, to prove the harness
 
-**Checkpoint**: `nix flake check` passes and the kernel is cached.
+**Checkpoint**: `nix flake check` passes.
 
 ## Phase 2: Foundational (blocks all stories)
 
-- [ ] T008 Write option declarations and assertions in `nixos/modules/security/selinux/default.nix` per contracts/nixos-options.md, including the AppArmor exclusion
+- [ ] T008 Write option declarations and assertions in `nixos/modules/security/selinux/default.nix` per contracts/nixos-options.md, including the AppArmor exclusion and a check that the kernel has `SECURITY_SELINUX`
 - [ ] T009 [P] Write `nixos/tests/selinux/disabled-noop.nix`: a system with the module imported but disabled has the same closure as one without it
 - [ ] T010 [P] Write an evaluation test that enabling SELinux and AppArmor together fails with the expected message
 - [ ] T011 Add `selinux` to `security.lsm` and the needed kernel parameters in `default.nix`, and check how the open `security=` assertion issue (#510901) affects it
