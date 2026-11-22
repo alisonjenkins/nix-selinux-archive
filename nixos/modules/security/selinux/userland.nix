@@ -12,6 +12,18 @@
 }:
 let
   cfg = config.security.selinux;
+
+  # `pkgs.coreutils` comes from a bootstrap stage, so its default libselinux
+  # would be evaluated in that stage's package set, which cannot build it.
+  # Pass the final ones explicitly.
+  selinuxCoreutils = pkgs.coreutils.override {
+    selinuxSupport = true;
+    inherit (pkgs) libselinux libsepol;
+  };
+
+  # Not in nixpkgs yet. The module must work without an overlay, because
+  # NixOS tests and some systems use a read-only package set.
+  secilc = pkgs.secilc or (pkgs.callPackage ../../../../pkgs/secilc { });
 in
 {
   config = lib.mkIf cfg.enable {
@@ -21,7 +33,7 @@ in
 
     environment.systemPackages = [
       # `ls -Z`, `id -Z`, `cp --preserve=context` and friends.
-      (lib.hiPrio (pkgs.coreutils.override { selinuxSupport = true; }))
+      (lib.hiPrio selinuxCoreutils)
       pkgs.libselinux # getenforce, selinuxenabled, getfilecon, ...
       pkgs.policycoreutils # load_policy, setfiles, restorecon, sestatus, ...
     ]
@@ -29,7 +41,7 @@ in
       pkgs.setools
       pkgs.selinux-python # audit2allow, audit2why
       pkgs.checkpolicy
-      pkgs.secilc
+      secilc
     ];
 
     security.auditd.enable = lib.mkIf cfg.developmentTools (lib.mkDefault true);

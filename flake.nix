@@ -27,10 +27,7 @@
       };
 
       nixosModules = {
-        selinux = {
-          imports = [ ./nixos/modules/security/selinux ];
-          nixpkgs.overlays = [ self.overlays.default ];
-        };
+        selinux = ./nixos/modules/security/selinux;
         default = self.nixosModules.selinux;
       };
 
