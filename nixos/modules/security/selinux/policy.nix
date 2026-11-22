@@ -13,9 +13,13 @@ let
   # Rules that name one exact store path. The hash in the path cannot be
   # chosen by whoever builds a package, so only content the system
   # configuration designates can receive these types.
-  exactRules = lib.concatMapStrings (
-    e: "${lib.escapeRegex (toString e.path)}\t--\tsystem_u:object_r:${e.type}:s0\n"
-  ) (lib.attrValues cfg.entrypoints);
+  exactRules = lib.concatStrings (
+    lib.unique (
+      map (e: "${lib.escapeRegex (toString e.path)}\t--\tsystem_u:object_r:${e.type}:s0\n") (
+        lib.attrValues cfg.entrypoints
+      )
+    )
+  );
 
   genericFileContexts = builtins.readFile ../../../../policy/minimal/file_contexts + cfg.fileContexts;
 in
