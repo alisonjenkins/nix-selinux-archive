@@ -1,0 +1,114 @@
+# Tasks: SELinux support for NixOS
+
+**Input**: Design documents from `specs/001-selinux-on-nixos/`
+**Prerequisites**: plan.md, spec.md, research.md, contracts/nixos-options.md
+
+**Tests**: Included. The spec requires VM tests for every milestone (FR-021), and each test is written to fail before its implementation.
+
+**Format**: `[ID] [P?] [Story] Description`. `[P]` means it can run in parallel with its neighbours. Paths are relative to the prototype repository root.
+
+## Phase 1: Setup (M0)
+
+- [ ] T001 Create the repository skeleton from plan.md and move `specs/` into it
+- [ ] T002 Write `flake.nix` with pinned nixpkgs unstable, `nixosModules.selinux`, `packages`, and `checks` wired to `nixos/tests/selinux/`
+- [ ] T003 [P] Add formatting and lint checks (`nixfmt`, `statix`, `shellcheck`) to `flake.nix` checks
+- [ ] T004 [P] Build the default NixOS kernel's config file and record whether `SECURITY_SELINUX`, `AUDIT`, `SECURITY_NETWORK` and xattr support for ext4 and tmpfs are set, in `docs/design.md`
+- [ ] T005 Define the SELinux-enabled kernel in `nixos/modules/security/selinux/default.nix` through structured config, build it once, and note the build time
+- [ ] T006 [P] Package `secilc` in `pkgs/secilc/default.nix` from the SELinux userspace source already used by nixpkgs
+- [ ] T007 Add a trivial VM test `nixos/tests/selinux/smoke.nix` that boots the SELinux kernel with the module absent, to prove the harness
+
+**Checkpoint**: `nix flake check` passes and the kernel is cached.
+
+## Phase 2: Foundational (blocks all stories)
+
+- [ ] T008 Write option declarations and assertions in `nixos/modules/security/selinux/default.nix` per contracts/nixos-options.md, including the AppArmor exclusion
+- [ ] T009 [P] Write `nixos/tests/selinux/disabled-noop.nix`: a system with the module imported but disabled has the same closure as one without it
+- [ ] T010 [P] Write an evaluation test that enabling SELinux and AppArmor together fails with the expected message
+- [ ] T011 Add `selinux` to `security.lsm` and the needed kernel parameters in `default.nix`, and check how the open `security=` assertion issue (#510901) affects it
+- [ ] T012 Write `nixos/modules/security/selinux/userland.nix`: systemd with `withSelinux`, coreutils with `selinuxSupport`, tools in `environment.systemPackages`
+- [ ] T013 Confirm the system builds with those overrides and record the rebuild cost of SELinux-enabled systemd
+
+**Checkpoint**: A system with the option enabled builds. It does not yet load a policy.
+
+## Phase 3: User Story 1 - Boot NixOS with SELinux observing (Priority: P1) 🎯 MVP (M1)
+
+**Goal**: Boot permissive with a policy loaded, every closure file labelled, denials logged.
+
+**Independent Test**: `nix build .#checks.x86_64-linux.selinux-permissive-boot .#checks.x86_64-linux.selinux-closure-labels`
+
+### Tests for User Story 1 (write first, confirm they fail)
+
+- [ ] T014 [P] [US1] `nixos/tests/selinux/permissive-boot.nix`: `selinuxenabled` succeeds, `getenforce` is Permissive, loaded policy name and version match the configuration
+- [ ] T015 [P] [US1] In the same test: PID 1 runs in the init domain, not the kernel's initial context
+- [ ] T016 [P] [US1] `nixos/tests/selinux/closure-labels.nix`: walk every file in the system closure and fail on any unlabelled or default-labelled file; assert the systemd binary, a unit file, a closure executable and a file reached through `/etc` carry their intended types
+- [ ] T017 [P] [US1] In `permissive-boot.nix`: trigger an action the policy does not allow, assert it succeeds and a denial record appears in the journal
+- [ ] T018 [P] [US1] In `closure-labels.nix`: files created by activation under `/etc`, `/var` and `/run` carry intended labels
+
+### Implementation for User Story 1
+
+- [ ] T019 [US1] Write the minimal CIL policy in `policy/minimal/` : initial contexts, kernel, init, unconfined, store data and executable types, etc, runtime and temporary types, and a broad allow for the unconfined domain
+- [ ] T020 [US1] Build it in `pkgs/selinux-policy-minimal/default.nix` with `secilc`, emitting `policy.NN` and `file_contexts` in the `/etc/selinux/<type>/` layout, with the version taken from the kernel
+- [ ] T021 [US1] Write `nixos/modules/security/selinux/policy.nix`: `/etc/selinux/config`, the policy tree under `environment.etc`, and helper paths pointing into the store
+- [ ] T022 [US1] Write `pkgs/nixos-store-file-contexts/default.nix`: from the system closure, generate generic rules and exact-path rules for systemd, unit files and the `etc` tree
+- [ ] T023 [US1] Write `pkgs/nixos-selinux-label/`: label a given list of store paths with `setfiles`, skip paths recorded as labelled under the same rule set, record progress atomically so an interrupted run resumes safely
+- [ ] T024 [US1] Write `nixos/modules/security/selinux/boot.nix` for the systemd initrd: a unit that loads the policy from the new root and labels the closure before the activation unit and before the store is made read-only
+- [ ] T025 [US1] Verify systemd in the real root detects the loaded policy and transitions to the init domain; fix labels or policy until T015 passes
+- [ ] T026 [US1] Add the mutable-path relabel unit to `boot.nix`, keyed on the policy's store path, covering `security.selinux.relabelPaths`
+- [ ] T027 [US1] Write the scripted stage 2 route: a patch to `stage-2-init.sh` that loads the policy and labels the closure before activation, applied through the flake; run T014 to T018 against both boot routes
+- [ ] T028 [US1] Add `security.selinux.developmentTools` (analysis tools, audit daemon) to `default.nix`
+
+### Measurements and open questions for User Story 1
+
+- [ ] T029 [P] [US1] Measure labelling time and boot time added, first boot and unchanged boot, for the minimal closure and a larger server closure; record against SC-005 in `docs/design.md`
+- [ ] T030 [P] [US1] Test whether labels survive `nix-store --optimise`, `nix-store --verify --repair`, and garbage collection followed by re-substitution; record results
+- [ ] T031 [P] [US1] Test what a shared (hardlinked) file's label is when two paths map to different types, and decide the version 1 rule for store optimisation
+- [ ] T032 [US1] Write the M1 section of `docs/design.md`: what works, measured numbers, answers to research.md questions 1 to 4, and what remains unknown
+
+**Checkpoint**: User Story 1 is demonstrable on its own. Review with Alison before starting M2.
+
+## Phase 4: User Story 2 - Enforcing minimal system (Priority: P2) (M2, outline)
+
+- [ ] T033 [US2] Tests first: `enforcing-boot.nix` covering boot, console login, SSH login, a configuration switch, a package build, reboot, with an allow-list of expected denials that must end empty
+- [ ] T034 [US2] Build refpolicy offline in `pkgs/selinux-policy-nixos/` (modular assembly, monolithic as fallback) with an unconfined-by-default module set
+- [ ] T035 [US2] Write the NixOS policy layer in `policy/nixos/`: store types, Nix daemon, activation, wrappers directory, path aliases for NixOS locations
+- [ ] T036 [US2] Enable SELinux in PAM, OpenSSH and D-Bus in `userland.nix`; add login mappings and PAM session entries
+- [ ] T037 [US2] Label at switch: run the labeller in a private mount namespace before the new generation's services start, and load the new policy
+- [ ] T038 [US2] Refuse a switch whose policy fails to load in enforcing mode
+- [ ] T039 [US2] Label and allow the privileged wrappers in `/run/wrappers`
+- [ ] T040 [US2] Document recovery when an enforcing system fails to boot
+
+## Phase 5: User Story 4 - Roll back and upgrade safely (Priority: P3) (M2, outline)
+
+- [ ] T041 [US4] `switch-rollback.nix`: two generations with different policies, switch forward, roll back, reboot into each, assert the active policy and sampled labels each time; include rollback to a generation without SELinux
+- [ ] T042 [US4] Fix whatever that test exposes in labelling state and policy reload
+
+## Phase 6: User Story 3 - Confine a service declaratively (Priority: P3) (M3, outline)
+
+- [ ] T043 [US3] Tests first: `confined-service.nix` (service runs in its domain, forbidden access denied and logged) and `forged-path.nix` (an imitating package built by an unprivileged user gets no privileged label)
+- [ ] T044 [US3] Implement `security.selinux.modules`, `entrypoints` and `booleans`, with build failures that name the offending fragment
+- [ ] T045 [US3] Confine one network service end to end as the worked example
+
+## Phase 7: Hardening (M4, outline)
+
+- [ ] T046 Ephemeral root filesystems, large closures, interrupted labelling, store maintenance during use: one test or documented limit for each edge case in the spec
+- [ ] T047 Tune labelling until SC-005 is met
+
+## Phase 8: User Story 5 - Upstream package (Priority: P2) (M5, outline)
+
+- [ ] T048 [US5] Finish `docs/design.md` with the threat model and the answers to each recorded objection
+- [ ] T049 [US5] Write the user manual chapter in `docs/manual.md`
+- [ ] T050 [US5] Split the work into an ordered patch series against nixpkgs, each default-off with its test, starting with the smallest (kernel support and `secilc`)
+- [ ] T051 [US5] Have someone uninvolved reproduce M1 and M2 from the documentation (SC-008)
+- [ ] T052 [US5] With Alison's go-ahead, open the upstream discussion and the first pull request
+
+## Dependencies & Execution Order
+
+- Phase 1 then Phase 2 block everything.
+- User Story 1 (Phase 3) blocks User Stories 2, 3 and 4.
+- User Story 4 depends on the switch labelling from User Story 2.
+- User Story 5 starts in parallel as documentation from M1 onward, and its final tasks wait for M3.
+- Within User Story 1: T014 to T018 first; T019 to T021 before T024; T022 and T023 before T024; T025 after T024; T029 to T031 after T025.
+
+## Implementation Strategy
+
+Stop after Phase 3 and validate. A permissive boot with a fully labelled closure and systemd in its intended domain is already more than any public NixOS result, and it answers the questions that decide how M2 is built. T052 is the only task that reaches outside the project and needs explicit approval.
