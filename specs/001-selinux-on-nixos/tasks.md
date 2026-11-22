@@ -38,24 +38,24 @@
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
-- [ ] T014 [P] [US1] `nixos/tests/selinux/permissive-boot.nix`: `selinuxenabled` succeeds, `getenforce` is Permissive, loaded policy name and version match the configuration
-- [ ] T015 [P] [US1] In the same test: PID 1 runs in the init domain, not the kernel's initial context
-- [ ] T016 [P] [US1] `nixos/tests/selinux/closure-labels.nix`: walk every file in the system closure and fail on any unlabelled or default-labelled file; assert the systemd binary, a unit file, a closure executable and a file reached through `/etc` carry their intended types
-- [ ] T017 [P] [US1] In `permissive-boot.nix`: trigger an action the policy does not allow, assert it succeeds and a denial record appears in the journal
-- [ ] T018 [P] [US1] In `closure-labels.nix`: files created by activation under `/etc`, `/var` and `/run` carry intended labels
+- [x] T014 [P] [US1] `nixos/tests/selinux/permissive-boot.nix`: `selinuxenabled` succeeds, `getenforce` is Permissive, loaded policy name and version match the configuration
+- [x] T015 [P] [US1] In the same test: PID 1 runs in the init domain, not the kernel's initial context
+- [x] T016 [P] [US1] `nixos/tests/selinux/closure-labels.nix`: walk every file in the system closure and fail on any unlabelled or default-labelled file; assert the systemd binary, a unit file, a closure executable and a file reached through `/etc` carry their intended types (done inside `permissive-boot.nix`)
+- [x] T017 [P] [US1] In `permissive-boot.nix`: trigger an action the policy does not allow, assert it succeeds and a denial record appears in the journal
+- [x] T018 [P] [US1] In `closure-labels.nix`: files created by activation under `/etc`, `/var` and `/run` carry intended labels (done inside `permissive-boot.nix`)
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Write the minimal CIL policy in `policy/minimal/` : initial contexts, kernel, init, unconfined, store data and executable types, etc, runtime and temporary types, and a broad allow for the unconfined domain
-- [ ] T020 [US1] Build it in `pkgs/selinux-policy-minimal/default.nix` with `secilc`, emitting `policy.NN` and `file_contexts` in the `/etc/selinux/<type>/` layout, with the version taken from the kernel
-- [ ] T021 [US1] Write `nixos/modules/security/selinux/policy.nix`: `/etc/selinux/config`, the policy tree under `environment.etc`, and helper paths pointing into the store
-- [ ] T022 [US1] Write `pkgs/nixos-store-file-contexts/default.nix`: from the system closure, generate generic rules and exact-path rules for systemd, unit files and the `etc` tree
-- [ ] T023 [US1] Write `pkgs/nixos-selinux-label/`: label a given list of store paths with `setfiles`, skip paths recorded as labelled under the same rule set, record progress atomically so an interrupted run resumes safely
-- [ ] T024 [US1] Write `nixos/modules/security/selinux/boot.nix` for the systemd initrd: a unit that loads the policy from the new root and labels the closure before the activation unit and before the store is made read-only
-- [ ] T025 [US1] Verify systemd in the real root detects the loaded policy and transitions to the init domain; fix labels or policy until T015 passes
-- [ ] T026 [US1] Add the mutable-path relabel unit to `boot.nix`, keyed on the policy's store path, covering `security.selinux.relabelPaths`
+- [x] T019 [US1] Write the minimal CIL policy in `policy/minimal/` : initial contexts, kernel, init, unconfined, store data and executable types, etc, runtime and temporary types, and a broad allow for the unconfined domain
+- [x] T020 [US1] Build it in `pkgs/selinux-policy-minimal/default.nix` with `secilc`, emitting `policy.NN` and `file_contexts` in the `/etc/selinux/<type>/` layout, with the version taken from the kernel
+- [x] T021 [US1] Write `nixos/modules/security/selinux/policy.nix`: `/etc/selinux/config`, the policy tree under `environment.etc`, and helper paths pointing into the store
+- [x] T022 [US1] Write `pkgs/nixos-store-file-contexts/default.nix`: from the system closure, generate generic rules and exact-path rules for systemd, unit files and the `etc` tree (done differently: generic rules live in `policy/minimal/file_contexts`, exact rules come from `security.selinux.entrypoints` in `policy.nix`)
+- [x] T023 [US1] Write `pkgs/nixos-selinux-label/`: label a given list of store paths with `setfiles`, skip paths recorded as labelled under the same rule set, record progress atomically so an interrupted run resumes safely (done as `pkgs/nixos-selinux-setup`, which labels the whole store and marks each path with a `trusted.nixos-selinux` attribute)
+- [x] T024 [US1] Write `nixos/modules/security/selinux/boot.nix` for the systemd initrd: a unit that loads the policy from the new root and labels the closure before the activation unit and before the store is made read-only
+- [x] T025 [US1] Verify systemd in the real root detects the loaded policy and transitions to the init domain; fix labels or policy until T015 passes
+- [x] T026 [US1] Add the mutable-path relabel unit to `boot.nix`, keyed on the policy's store path, covering `security.selinux.relabelPaths`
 - [x] T027 ~~Scripted stage 2 route~~ Not needed: nixpkgs has removed the scripted initrd, so the systemd initrd is the only boot route
-- [ ] T028 [US1] Add `security.selinux.developmentTools` (analysis tools, audit daemon) to `default.nix`
+- [x] T028 [US1] Add `security.selinux.developmentTools` (analysis tools, audit daemon) to `default.nix`
 
 ### Measurements and open questions for User Story 1
 

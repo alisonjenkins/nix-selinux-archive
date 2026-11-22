@@ -24,6 +24,8 @@
     {
       overlays.default = final: _prev: {
         secilc = final.callPackage ./pkgs/secilc { };
+        selinux-policy-minimal = final.callPackage ./pkgs/selinux-policy-minimal { };
+        nixos-selinux-setup = final.callPackage ./pkgs/nixos-selinux-setup { };
       };
 
       nixosModules = {
@@ -32,7 +34,7 @@
       };
 
       packages = forAllSystems (system: {
-        inherit (pkgsFor system) secilc;
+        inherit (pkgsFor system) secilc selinux-policy-minimal nixos-selinux-setup;
       });
 
       formatter = forAllSystems (system: (pkgsFor system).nixfmt);
@@ -54,12 +56,16 @@
         in
         evalChecks
         // {
-          inherit (pkgs) secilc;
+          inherit (pkgs) secilc selinux-policy-minimal nixos-selinux-setup;
 
           selinux-smoke = pkgs.testers.runNixOSTest ./nixos/tests/selinux/smoke.nix;
 
-          selinux-no-policy = pkgs.testers.runNixOSTest (
-            import ./nixos/tests/selinux/no-policy.nix { selinuxModule = self.nixosModules.selinux; }
+          selinux-permissive-boot = pkgs.testers.runNixOSTest (
+            import ./nixos/tests/selinux/permissive-boot.nix { selinuxModule = self.nixosModules.selinux; }
+          );
+
+          selinux-enforcing = pkgs.testers.runNixOSTest (
+            import ./nixos/tests/selinux/enforcing.nix { selinuxModule = self.nixosModules.selinux; }
           );
 
           formatting = pkgs.runCommand "check-formatting" { nativeBuildInputs = [ pkgs.nixfmt ]; } ''

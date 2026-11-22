@@ -9,6 +9,8 @@ let
 in
 {
   imports = [
+    ./boot.nix
+    ./policy.nix
     ./userland.nix
   ];
 
