@@ -27,4 +27,8 @@ A prototype of SELinux support for NixOS, developed with the aim of contributing
 nix flake check
 ```
 
-VM tests need KVM to run at a reasonable speed.
+VM tests use KVM when it is available. On a machine without KVM, Nix refuses to build them unless told the feature exists, and QEMU then falls back to software emulation (the smoke test takes about two and a half minutes that way):
+
+```sh
+nix flake check --option system-features "kvm nixos-test benchmark big-parallel uid-range"
+```

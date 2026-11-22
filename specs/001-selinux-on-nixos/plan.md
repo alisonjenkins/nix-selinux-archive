@@ -12,7 +12,7 @@ Design rationale and sources are in [research.md](./research.md). The option int
 ## Technical Context
 
 **Language/Version**: Nix (module system, derivations), Bash for boot and labelling scripts, SELinux CIL for the minimal policy, refpolicy M4 (`.te`, `.fc`, `.if`) for the NixOS policy layer, Python for NixOS VM test scripts.
-**Primary Dependencies**: nixpkgs unstable pinned by flake lock; `selinuxPackages` 3.11 (libselinux, libsepol, libsemanage, policycoreutils, checkpolicy); `selinux-refpolicy` 2.20250923; systemd built with `withSelinux = true`; a Linux kernel with `SECURITY_SELINUX`.
+**Primary Dependencies**: nixpkgs unstable pinned by flake lock; `selinuxPackages` 3.11 (libselinux, libsepol, libsemanage, policycoreutils, checkpolicy); `selinux-refpolicy` 2.20250923; systemd built with `withSelinux = true`; the default NixOS kernel, which already has `SECURITY_SELINUX`.
 **Storage**: Labels are `security.selinux` extended attributes on store files. Labelling progress is a small state file under `/var/lib/selinux-nixos/`. Policy lives in the system closure and is exposed at `/etc/selinux`.
 **Testing**: NixOS VM tests (`pkgs.testers.runNixOSTest`), run through `nix flake check`. Build-time policy checks with `secilc` and `checkpolicy`.
 **Target Platform**: NixOS on x86_64-linux first, aarch64-linux second. Filesystems with extended attribute support (ext4, xfs, btrfs).
@@ -84,7 +84,7 @@ docs/
 
 ## Key design decisions
 
-1. **Kernel.** The prototype enables `SECURITY_SELINUX` through structured kernel config, which rebuilds the kernel. That rebuild is the slowest part of every fresh test run and is the first thing to cache. The upstream proposal is to build SELinux into the default kernel, inactive unless listed in `lsm=`, so that users need no rebuild.
+1. **Kernel.** The default NixOS kernel already has SELinux built in (checked against the built config on 2026-11-22). It is inactive only because `lsm=` leaves it out, so the module just adds `selinux` to `security.lsm`. No kernel rebuild and no kernel change upstream are needed. The module asserts that the configured kernel has `SECURITY_SELINUX`, for users with custom kernels.
 2. **LSM selection.** `security.lsm` gains `selinux`. An assertion rejects configurations that also enable AppArmor.
 3. **Policy build.** Milestone 1 uses a small CIL policy compiled by `secilc`. Milestone 2 switches to refpolicy with a NixOS layer, assembled offline. Both produce the same `/etc/selinux/<type>/` layout, with the policy version matched to the kernel.
 4. **Policy load.** The policy is loaded before activation. On systems using the systemd initrd, an initrd unit loads it from the new root before the activation unit runs. This needs no nixpkgs patch and is the prototype's first route. Scripted stage 2 has no hook before activation, so supporting it needs a small change to `stage-2-init.sh`, carried as a patch until upstreamed. Both routes are unverified until the first test runs.
@@ -97,7 +97,7 @@ docs/
 
 | Milestone | Delivers | Spec stories | Exit test |
 |---|---|---|---|
-| M0 Setup | Repository, flake, pinned nixpkgs, cached SELinux kernel, test harness | none | `nix flake check` runs an empty VM test |
+| M0 Setup | Repository, flake, pinned nixpkgs, `secilc`, test harness | none | `nix flake check` runs the smoke VM test |
 | M1 Permissive boot | Module, minimal policy, early load, closure labelling, denials logged | US1 | `permissive-boot`, `closure-labels`, `disabled-noop` pass |
 | M2 Enforcing minimal system | refpolicy with NixOS layer, logins, SSH, switch, Nix daemon | US2, US4 | `enforcing-boot`, `switch-rollback` pass with no unexpected denials |
 | M3 Declarative confinement | Per-service policy fragments, tunables as options, forged-path proof | US3 | `confined-service`, `forged-path` pass |
@@ -112,7 +112,7 @@ Detailed tasks for M0 and M1 are in [tasks.md](./tasks.md). M2 onward are listed
 |---|---|---|
 | systemd does not enter its intended domain because the store binary is unlabelled at exec time | No useful policy enforcement | Label the systemd path in the initrd before switch-root. This is the first thing M1 proves. |
 | Labels lost on store optimisation, repair or re-substitution | Unlabelled system files | Test each operation in M1. Relabel on switch and at boot. |
-| Kernel rebuild makes tests slow | Slow iteration | Build once and cache. Propose default-kernel support upstream early in the series. |
+| VM tests are slow without KVM | Slow iteration where KVM is unavailable | Keep tests small and split. Run them on a machine with KVM where possible. |
 | Offline refpolicy assembly fails in the sandbox with userspace 3.11 | M2 blocked | Fall back to monolithic refpolicy, which needs no module store. |
 | refpolicy too noisy on a non-FHS system | Long path to zero denials | Unconfined by default, confine incrementally, add path aliases for NixOS locations. |
 | Upstream reviewers reject SELinux on principle | US5 stalls | Lead with tests, a threat model and zero cost when disabled. Keep the flake usable on its own. |

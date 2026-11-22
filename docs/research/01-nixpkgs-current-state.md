@@ -1,5 +1,7 @@
 # SELinux in nixpkgs / NixOS: current state (2026-11-21)
 
+> **Correction, 2026-11-22**: section 1.2 infers that the default kernel leaves `CONFIG_SECURITY_SELINUX` unset. The built config of the default kernel (6.18.64) shows it is set to `y`. See `specs/001-selinux-on-nixos/research.md` section 1.
+
 Method: `git clone --depth 1 --filter=blob:none --sparse` of NixOS/nixpkgs (default branch), HEAD `f657589a605aaa836018e7092920395d5d2ec2ea` (2026-11-21), sparse paths `pkgs`, `nixos/modules`, `nixos/tests`, `nixos/lib`. Then `git grep`. GitHub search REST API for PRs/issues (titles, dates and PR bodies only; the issue/PR read endpoints were denied in this session, so PR contents beyond the first message were NOT read).
 
 ## 1. VERIFIED FROM SOURCE
