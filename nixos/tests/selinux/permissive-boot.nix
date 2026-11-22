@@ -35,6 +35,8 @@
     def setype(path: str) -> str:
         return context(path).split(":")[2]
 
+    # Reboots keep the same qemu process, and with it the disk contents.
+    machine.start(allow_reboot=True)
     machine.wait_for_unit("multi-user.target")
 
     with subtest("SELinux is permissive with the configured policy loaded"):
