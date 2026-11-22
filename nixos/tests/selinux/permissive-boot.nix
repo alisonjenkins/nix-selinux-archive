@@ -45,10 +45,10 @@
         machine.succeed("selinuxenabled")
 
     with subtest("the policy was loaded and the root labelled in the initrd"):
-        log = machine.succeed("journalctl -b -u initrd-selinux-setup.service --no-pager")
-        print(log)
-        assert "loaded policy" in log, log
-        assert "labelled" in log, log
+        journal = machine.succeed("journalctl -b -u initrd-selinux-setup.service --no-pager")
+        print(journal)
+        assert "loaded policy" in journal, journal
+        assert "labelled" in journal, journal
 
     with subtest("PID 1 runs in the init domain"):
         pid1 = machine.succeed("cat /proc/1/attr/current").strip("\x00\n ")
@@ -112,9 +112,9 @@
     with subtest("labels persist across a reboot and are not redone"):
         machine.reboot()
         machine.wait_for_unit("multi-user.target")
-        log = machine.succeed("journalctl -b -u initrd-selinux-setup.service --no-pager")
-        print(log)
-        assert "store labels are up to date" in log, log
+        journal = machine.succeed("journalctl -b -u initrd-selinux-setup.service --no-pager")
+        print(journal)
+        assert "store labels are up to date" in journal, journal
         pid1 = machine.succeed("cat /proc/1/attr/current").strip("\x00\n ")
         assert pid1 == "system_u:system_r:init_t:s0", pid1
   '';
