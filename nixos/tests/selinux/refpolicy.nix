@@ -13,6 +13,19 @@
 
   nodes.machine =
     { pkgs, ... }:
+    let
+      demo = pkgs.writeShellScript "demo" ''
+        echo "context=$(tr -d '\0' < /proc/self/attr/current)"
+        if cat /etc/hostname > /dev/null; then
+          echo "hostname=readable"
+        fi
+        if cat /var/lib/demo-secret > /dev/null 2>&1; then
+          echo "secret=readable"
+        else
+          echo "secret=denied"
+        fi
+      '';
+    in
     {
       imports = [
         selinuxModule
@@ -25,6 +38,27 @@
         mode = if enforcing then "enforcing" else "permissive";
         logAllDenials = !enforcing;
         confine.nixBuilds = true;
+
+        # A service of this system's own, confined by a local module.
+        modules.demo.te = ''
+          type demo_t;
+          type demo_exec_t;
+          init_daemon_domain(demo_t, demo_exec_t)
+          corecmd_exec_bin(demo_t)
+          corecmd_exec_shell(demo_t)
+          logging_send_syslog_msg(demo_t)
+          allow demo_t self:fifo_file rw_fifo_file_perms;
+        '';
+        entrypoints.demo = {
+          path = demo;
+          type = "demo_exec_t";
+        };
+      };
+
+      # Reads one file it is allowed to and one it is not, and reports.
+      systemd.services.demo.serviceConfig = {
+        Type = "oneshot";
+        ExecStart = demo;
       };
 
       services.openssh.enable = true;
@@ -164,6 +198,17 @@
 
     with subtest("nothing was denied"):
         assert denials() == ""
+
+    with subtest("a service confined by a local module is blocked from what its policy lacks"):
+        machine.succeed("echo secret > /var/lib/demo-secret")
+        machine.succeed("systemctl start demo.service")
+        output = machine.succeed("journalctl -b -u demo.service --no-pager -o cat")
+        print(output)
+        print(machine.succeed("journalctl -b --no-pager | grep 'avc:  denied' | grep demo_t || true"))
+        if strict:
+            assert "context=system_u:system_r:demo_t:s0" in output, output
+            assert "hostname=readable" in output, output
+            assert "secret=denied" in output, output
 
     with subtest("the system reboots cleanly into enforcing mode"):
         machine.reboot()

@@ -14,6 +14,8 @@
   # Packages whose programs get the types the reference policy gives the
   # same programs at their usual FHS locations.
   fhsPackages ? [ ],
+  # Modules of the system's own, by name: { te, if } as text.
+  localModules ? { },
   # false removes the policy's dontaudit rules, so that every denial is
   # logged. For policy development.
   dontaudit ? true,
@@ -25,13 +27,35 @@
 (selinux-refpolicy.override { inherit policyVersion; }).overrideAttrs (old: {
   pname = "selinux-policy-${name}";
 
-  postPatch = (old.postPatch or "") + ''
-    mkdir -p policy/modules/nixos
-    cp ${./nixos.te} policy/modules/nixos/nixos.te
-    cp ${./nixos.fc} policy/modules/nixos/nixos.fc
-    cp ${./nixos.if} policy/modules/nixos/nixos.if
-    echo '<summary>NixOS-specific policy.</summary>' > policy/modules/nixos/metadata.xml
-  '';
+  postPatch =
+    (old.postPatch or "")
+    + ''
+      mkdir -p policy/modules/nixos
+      cp ${./nixos.te} policy/modules/nixos/nixos.te
+      cp ${./nixos.fc} policy/modules/nixos/nixos.fc
+      cp ${./nixos.if} policy/modules/nixos/nixos.if
+      echo '<summary>NixOS-specific policy.</summary>' > policy/modules/nixos/metadata.xml
+    ''
+    + lib.optionalString (localModules != { }) (
+      ''
+        mkdir -p policy/modules/local
+        echo '<summary>Policy of this system.</summary>' > policy/modules/local/metadata.xml
+      ''
+      + lib.concatStrings (
+        lib.mapAttrsToList (
+          module: text:
+          let
+            te = builtins.toFile "${module}.te" "policy_module(${module})\n${text.te}";
+            interfaces = builtins.toFile "${module}.if" "## <summary>${module}</summary>\n${text."if"}";
+          in
+          ''
+            cp ${te} policy/modules/local/${module}.te
+            cp ${interfaces} policy/modules/local/${module}.if
+            : > policy/modules/local/${module}.fc
+          ''
+        ) localModules
+      )
+    );
 
   # `make conf` writes the defaults; change the ones asked for, and fail
   # on a name the policy does not have.
