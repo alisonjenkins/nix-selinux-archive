@@ -1,5 +1,7 @@
 # Contract: NixOS configuration options
 
+> Written before the implementation and kept as a record. The options as built are described in the [manual chapter](../../../nixos/modules/security/selinux/selinux.md) and in the module itself.
+
 This is the interface administrators and service module authors use. Names follow the open upstream draft where it already defines them (`enable`, `mode`, `type`, `policyVersion`), so a later merge is not a rename.
 
 ## Administrator options

@@ -173,6 +173,6 @@ A nixpkgs reviewer receives the work as a series of small changes. Each is off b
 - Changes to Nix core are out of scope, because Nix maintainers have declined them repeatedly. See research.md section 2.
 - The reference policy already packaged in nixpkgs is the base, extended by a NixOS-specific layer. See research.md section 5.
 - Confinement of the Nix build sandbox beyond what the daemon already provides, confined desktop sessions, multi-level security and container isolation are later work.
-- The prototype is developed independently for now. We do not contact the people already working on this upstream, or post in upstream discussions, until Alison decides to. Public upstream work may be read as reference.
+- The prototype is developed independently for now. We do not contact the people already working on this upstream, or post in upstream discussions, until the maintainer decides to. Public upstream work may be read as reference.
 - Testing uses VMs built by Nix. No physical hardware is required.
 - Secrets are kept out of the Nix store, as NixOS already recommends, so no store content needs a confidentiality label.

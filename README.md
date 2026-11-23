@@ -53,3 +53,7 @@ VM tests use KVM when it is available. On a machine without KVM, Nix refuses to 
 ```sh
 nix flake check --option system-features "kvm nixos-test benchmark big-parallel uid-range"
 ```
+
+## Licence
+
+MIT, the same as nixpkgs. The built reference policy is a derived work of the SELinux reference policy, which is GPL-2.0.

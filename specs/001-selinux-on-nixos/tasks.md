@@ -64,7 +64,7 @@
 - [x] T031 [P] [US1] Test what a shared (hardlinked) file's label is when two paths map to different types, and decide the version 1 rule for store optimisation
 - [x] T032 [US1] Write the M1 section of `docs/design.md`: what works, measured numbers, answers to research.md questions 1 to 4, and what remains unknown
 
-**Checkpoint**: User Story 1 is demonstrable on its own. Review with Alison before starting M2.
+**Checkpoint**: User Story 1 is demonstrable on its own. Review before starting M2.
 
 ## Phase 4: User Story 2 - Enforcing minimal system (Priority: P2) (M2, outline)
 
@@ -99,7 +99,7 @@
 - [x] T049 [US5] Write the user manual chapter in `docs/manual.md` (`docs/manual.md`)
 - [x] T050 [US5] Split the work into an ordered patch series against nixpkgs, each default-off with its test, starting with the smallest (kernel support and `secilc`) (`upstream/make-series.py`; four commits, checked against the locked nixpkgs revision)
 - [ ] T051 [US5] Have someone uninvolved reproduce M1 and M2 from the documentation (SC-008)
-- [ ] T052 [US5] With Alison's go-ahead, open the upstream discussion and the first pull request
+- [ ] T052 [US5] With the maintainer's go-ahead, open the upstream discussion and the first pull request
 
 ## Dependencies & Execution Order
 
