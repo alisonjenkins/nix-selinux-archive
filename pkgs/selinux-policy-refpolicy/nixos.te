@@ -28,9 +28,18 @@ allow domain nix_store_t:dir list_dir_perms;
 allow domain nix_store_t:file { read_file_perms map };
 allow domain nix_store_t:lnk_file read_lnk_file_perms;
 
+# NixOS mounts the store nosuid, and every executable lives there. The
+# kernel then refuses a domain transition unless this is allowed; the
+# transition itself still needs its own rule.
+allow domain domain:process2 nosuid_transition;
+
 # Programs carry generic types unless the system configuration names
 # them by exact store path, so services start in the generic service
 # domain. Leave that domain unconfined: confinement is opt-in.
 optional_policy(`
 	unconfined_domain(initrc_t)
 ')
+
+# Seen at boot: PCRE just-in-time compilation in grep, and agetty.
+allow initrc_t self:process execmem;
+allow initrc_t self:capability2 checkpoint_restore;
