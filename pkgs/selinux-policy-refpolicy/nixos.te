@@ -5,6 +5,7 @@ gen_require(`
 	type initrc_t;
 	type init_t;
 	type var_run_t;
+	type selinux_config_t;
 ')
 
 ########################################
@@ -41,6 +42,11 @@ allow domain domain:process2 nosuid_transition;
 # runtime type until the next boot labels it.
 allow domain var_run_t:lnk_file read_lnk_file_perms;
 
+# Files under /etc are symbolic links into the store. The link at
+# /etc/selinux/config has the type of the file it stands for, and every
+# program that asks whether SELinux is enabled follows it.
+allow domain selinux_config_t:lnk_file read_lnk_file_perms;
+
 # Nix profiles and garbage collector roots under /nix/var are symlinks
 # into the store that programs follow to find their files.
 allow domain nix_var_t:dir list_dir_perms;
@@ -50,6 +56,8 @@ allow domain nix_var_t:lnk_file read_lnk_file_perms;
 # that have their own types elsewhere, such as the SELinux configuration
 # that every program linked against libselinux reads.
 files_read_etc_files(domain)
+# Data files of packages (share/) are store content like any other.
+files_read_usr_files(domain)
 
 # Programs carry generic types unless the system configuration names
 # them by exact store path, so services start in the generic service

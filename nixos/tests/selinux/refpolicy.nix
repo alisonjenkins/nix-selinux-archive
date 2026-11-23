@@ -47,6 +47,7 @@
           corecmd_exec_bin(demo_t)
           corecmd_exec_shell(demo_t)
           logging_send_syslog_msg(demo_t)
+          allow demo_t self:fifo_file rw_fifo_file_perms;
         '';
         entrypoints.demo = {
           path = demo;
