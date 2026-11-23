@@ -12,6 +12,7 @@
 
       security.selinux = {
         enable = true;
+        type = "minimal";
         mode = "enforcing";
       };
 

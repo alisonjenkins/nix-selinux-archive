@@ -13,7 +13,7 @@
   nodes.machine =
     { pkgs, ... }:
     let
-      demo = pkgs.writeShellScript "demo" ''
+      demoScript = ''
         echo "context=$(tr -d '\0' < /proc/self/attr/current)"
         if cat /etc/hostname > /dev/null; then
           echo "hostname=readable"
@@ -24,6 +24,7 @@
           echo "secret=denied"
         fi
       '';
+      demo = pkgs.writeShellScript "demo" demoScript;
     in
     {
       imports = [
@@ -32,24 +33,28 @@
 
       security.selinux = {
         enable = true;
-        type = "refpolicy";
         mode = if enforcing then "enforcing" else "permissive";
         logAllDenials = !enforcing;
         confine.nixBuilds = true;
 
-        # A service of this system's own, confined by a local module.
-        modules.demo.te = ''
-          type demo_t;
-          type demo_exec_t;
-          init_daemon_domain(demo_t, demo_exec_t)
+        # A service of this system's own: the module finds its program,
+        # creates demo_t and starts the service in it.
+        services.demo.rules = ''
           corecmd_exec_bin(demo_t)
           corecmd_exec_shell(demo_t)
           logging_send_syslog_msg(demo_t)
           allow demo_t self:fifo_file rw_fifo_file_perms;
         '';
-        entrypoints.demo = {
-          path = demo;
-          type = "demo_exec_t";
+
+        # The same service again, but only logging what it is denied.
+        services.demo-learning = {
+          permissive = true;
+          rules = ''
+            corecmd_exec_bin(demo_learning_t)
+            corecmd_exec_shell(demo_learning_t)
+            logging_send_syslog_msg(demo_learning_t)
+            allow demo_learning_t self:fifo_file rw_fifo_file_perms;
+          '';
         };
       };
 
@@ -57,6 +62,11 @@
       systemd.services.demo.serviceConfig = {
         Type = "oneshot";
         ExecStart = demo;
+      };
+      # A copy of the script, so that it is a different file.
+      systemd.services.demo-learning.serviceConfig = {
+        Type = "oneshot";
+        ExecStart = pkgs.writeShellScript "demo-learning" demoScript;
       };
 
       services.openssh.enable = true;
@@ -251,6 +261,32 @@
             assert "context=system_u:system_r:demo_t:s0" in output, output
             assert "hostname=readable" in output, output
             assert "secret=denied" in output, output
+
+    with subtest("a permissive service is logged, not blocked, while the system enforces"):
+        machine.succeed("systemctl start demo-learning.service")
+        output = machine.succeed("journalctl -b -u demo-learning.service --no-pager -o cat")
+        print(output)
+        if strict:
+            assert "context=system_u:system_r:demo_learning_t:s0" in output, output
+            assert "secret=readable" in output, output
+            assert machine.succeed("getenforce").strip() == "Enforcing"
+
+    with subtest("nixos-selinux reports status and turns denials into rules"):
+        status = machine.succeed("nixos-selinux status")
+        print(status)
+        assert "refpolicy" in status, status
+        assert "sshd_t" in status, status
+        assert "WRONG" not in status, status
+        listing = machine.succeed("nixos-selinux denials")
+        print(listing)
+        assert "demo_t" in listing, listing
+        rules = machine.succeed("nixos-selinux denials --rules")
+        print(rules)
+        if strict:
+            assert "allow demo_learning_t var_lib_t:" in rules, rules
+        machine.succeed("nixos-selinux relabel >&2")
+        machine.succeed("nixos-selinux help")
+        machine.fail("nixos-selinux nonsense")
 
     with subtest("the system reboots cleanly into enforcing mode"):
         machine.reboot()

@@ -2,7 +2,20 @@
 
 A prototype of SELinux support for NixOS, developed with the aim of contributing it to nixpkgs.
 
-**Status**: prototype. In VM tests a NixOS system boots in permissive and in enforcing mode with a fully labelled store, working SSH and Nix builds, switch and rollback between policies, and one confined demo service whose forbidden access is denied. Two policies are available: a small one written for NixOS (`minimal`, the default) and the SELinux reference policy with a NixOS module (`refpolicy`, experimental). Both leave services unconfined unless told otherwise, so this is a working base and not yet a hardening policy. It has not been tried on a real machine.
+**Status**: prototype, proven in VM tests only. A NixOS system boots enforcing with the SELinux reference policy, a labelled store, working logins, Nix builds, switch and rollback. A handful of system services are confined; everything else is unconfined until you confine it. It has not been tried on a real machine.
+
+## Using it
+
+```nix
+{
+  inputs.nix-selinux.url = "github:alisonjenkins/nix-selinux";
+  # in your system's modules:
+  #   nix-selinux.nixosModules.selinux
+  #   { security.selinux.enable = true; }
+}
+```
+
+Reboot, then run `nixos-selinux status`. The system starts permissive (logging only). The [manual chapter](nixos/modules/security/selinux/selinux.md) is short and covers the rest: confining a service, reading denials, recovery.
 
 ## Approach
 

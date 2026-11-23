@@ -46,6 +46,7 @@ Three sources produce exact rules:
 - `security.selinux.entrypoints.<name> = { path; type; }` for individual files.
 - `security.selinux.fhsLabelledPackages`: for each program in these packages, the policy build asks the reference policy what type it gives the same file under `/usr`, and writes an exact rule when that differs from the generic type. This reuses the reference policy's own file contexts with no table to maintain. systemd and D-Bus are in the list by default; 128 programs get their types this way.
 - `security.selinux.confine.<service>`: per-service switches that add the entrypoints a service needs (sshd, nscd, the Nix daemon).
+- `security.selinux.services.<name>`: confines a systemd service in one place. The program is read from the unit's `ExecStart`, labelled by exact path, the domain is declared (or an existing one named), and the unit is pinned to it with `SELinuxContext=`. `permissive = true` makes that one domain log instead of deny.
 
 Exact rules are appended to the policy's `file_contexts`, where they take precedence over patterns. A label belongs to a file, not to a name, so a configured path that is a symbolic link is resolved when the policy is built and the rule is written for the file it leads to. The programs of the `nix` package are such links.
 
@@ -55,7 +56,7 @@ The activation script loads the new generation's policy, applies its mode, label
 
 ### Policy
 
-`security.selinux.type = "refpolicy"` builds the nixpkgs reference policy source as one monolithic binary policy (MCS, systemd support, unknown permissions allowed), with:
+`security.selinux.type = "refpolicy"` (the default) builds the nixpkgs reference policy source as one monolithic binary policy (MCS, systemd support, unknown permissions allowed), with:
 
 - `nixos.te` and `nixos.fc`: the store types, generic labels for store content, and the rules NixOS needs that the reference policy does not have.
 - `security.selinux.modules.<name>.te`: the system's own modules, compiled in.
