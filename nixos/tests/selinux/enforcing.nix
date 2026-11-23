@@ -107,11 +107,36 @@
         print(denials)
         assert "permissive=0" in denials, denials
 
+    with subtest("a store path imitating systemd gets no privileged label"):
+        # Answers the forged-path objection: an unprivileged user adds a
+        # store path laid out like systemd. Only the exact store path named
+        # by the system configuration may carry the init entrypoint type.
+        machine.succeed(
+            "mkdir -p /tmp/forged/lib/systemd /tmp/nobody-home",
+            "cp -L /run/current-system/systemd/lib/systemd/systemd /tmp/forged/lib/systemd/systemd",
+            "chmod -R a+rX /tmp/forged && chown nobody /tmp/nobody-home",
+        )
+        forged = machine.succeed(
+            "runuser -u nobody -- env HOME=/tmp/nobody-home nix-store --add /tmp/forged"
+        ).strip()
+        assert forged.startswith("/nix/store/"), forged
+        real = machine.succeed(
+            "stat -L -c %C /run/current-system/systemd/lib/systemd/systemd"
+        ).strip()
+        assert real == "system_u:object_r:init_exec_t:s0", real
+        label = machine.succeed(f"stat -c %C {forged}/lib/systemd/systemd").strip()
+        print(label)
+        assert "init_exec_t" not in label, label
+
     with subtest("the system reboots cleanly into enforcing mode"):
         machine.reboot()
         machine.wait_for_unit("multi-user.target")
         assert machine.succeed("getenforce").strip() == "Enforcing"
         failed = machine.succeed("systemctl --failed --no-legend").strip()
         assert failed == "", failed
+        # The labeller has now processed the imitating path with the
+        # generic rules; it still must not carry the entrypoint type.
+        label = machine.succeed(f"stat -c %C {forged}/lib/systemd/systemd").strip()
+        assert label == "system_u:object_r:lib_t:s0", label
   '';
 }
