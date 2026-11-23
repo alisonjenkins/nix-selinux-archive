@@ -17,7 +17,7 @@ A prototype of SELinux support for NixOS, developed with the aim of contributing
 |---|---|
 | `specs/001-selinux-on-nixos/` | Specification, research summary, plan and task list |
 | `docs/design.md` | How it works, threat model, test results, open questions |
-| `docs/manual.md` | How to enable and use it, and how to recover |
+| `nixos/modules/security/selinux/selinux.md` | The manual chapter: how to enable and use it, and how to recover |
 | `docs/research/` | Detailed research reports with sources |
 | `nixos/modules/security/selinux/` | The NixOS module, with the setup tool (`setup/`) and the reference policy build (`refpolicy/`) |
 | `nixos/tests/selinux/` | NixOS VM tests |

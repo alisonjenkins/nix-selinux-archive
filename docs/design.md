@@ -125,6 +125,7 @@ All run as NixOS VM tests (`nix flake check`).
 | `selinux-refpolicy` | Reference policy, enforcing, zero denials: sshd, nscd, journald, logind, udev, D-Bus and the Nix daemon in their domains; SSH and console logins land in the mapped user context and are registered with logind; a Nix build runs in the build domain; reboot. |
 | `selinux-store-maintenance` | Store verification passes on a labelled store; optimisation and the label; garbage collection; a path that returns is labelled again. |
 | `selinux-recovery` | An enforcing configuration boots permissive with `enforcing=0` on the kernel command line, and without SELinux when it is left out of `lsm=`. |
+| `selinux-ephemeral-root` | With the root on tmpfs and only the store kept, both policies boot enforcing with no denials, twice; the store is not labelled again. |
 | `selinux-refpolicy-audit` | Development tool: the reference policy test in permissive mode, printing a summary of denials. |
 
 Measured with KVM on a 32-core desktop (`nix build .#selinux-measure-desktop` for the second row):
@@ -138,7 +139,7 @@ The first boot of the desktop closure took 17.6 s in total and an unchanged boot
 
 ## Known limits and open questions
 
-- **Not yet tried on a real machine** or on an ephemeral root. The first-boot pass scales with the number of files in the store.
+- **Not yet tried on a real machine.** The first-boot pass scales with the number of files in the store.
 - **A change to a generic rule that can apply to the store relabels the whole store** at the next boot or switch. Rules for paths outside the store do not.
 - **Hard links inside one store path** can join two names whose rules give different types, for example a file under `lib/` that is also linked under `share/`. The inode gets one of the two generic types and `setfiles` prints a warning. 72 such pairs appear in a desktop closure; none involves an exact rule.
 - **The whole store is labelled, not only the system closure.** This is simpler and covers user profiles, at the cost of a longer first pass.
@@ -152,13 +153,13 @@ The first boot of the desktop closure took 17.6 s in total and an unchanged boot
 
 ## Path to upstream
 
-In order, each default-off and with its test:
+`upstream/make-series.py` applies this repository to a nixpkgs checkout as four commits, each default-off and with its test:
 
-1. `secilc` package and the smoke test.
-2. The module skeleton, the minimal policy, the setup tool and the permissive boot test.
-3. Enforcing mode, entrypoints, the confined service example and the forged path test.
-4. Switch and rollback.
-5. The reference policy type, login contexts, and service confinement.
-6. The Nix daemon and build domains.
+1. `secilc`, the CIL compiler.
+2. The smoke test: the stock kernel activates SELinux with one option.
+3. The minimal policy package.
+4. The module with both policy types, the setup tool, the manual chapter and seven VM tests.
 
-Policy rules in group 3 above can be offered to the reference policy independently.
+The `nixos/` and `pkgs/` trees here have the paths and contents they need in nixpkgs and are copied unchanged. See `upstream/README.md` for what is left to do before submitting.
+
+The rules in group 3 of the policy section can be offered to the reference policy independently.
