@@ -246,10 +246,8 @@ in
           signal or trace other processes, in addition to the isolation
           Nix itself provides.
 
-          Every program the daemon starts enters this domain, including a
-          `post-build-hook` and the `ssh` client used for remote builders,
-          which then lack access they need. Builds without the sandbox are
-          not supported with this option.
+          Cannot be combined with remote builders, a `post-build-hook`
+          or a disabled sandbox; the build says so.
         '';
       };
     };
@@ -267,6 +265,21 @@ in
           (cfg.confine.sshd || cfg.confine.nscd || cfg.confine.nix || cfg.confine.getty || cfg.confine.dhcpcd)
           -> refpolicy;
         message = "security.selinux.confine.* needs security.selinux.type = \"refpolicy\".";
+      }
+      {
+        assertion =
+          cfg.confine.nixBuilds
+          -> !(
+            config.nix.distributedBuilds
+            || config.nix.settings ? post-build-hook
+            || (config.nix.settings.sandbox or true) == false
+          );
+        message = ''
+          security.selinux.confine.nixBuilds cannot be used with remote
+          builders (nix.distributedBuilds), a post-build-hook or the
+          sandbox turned off: each would run inside the confined build
+          domain and fail. Turn security.selinux.confine.nixBuilds off.
+        '';
       }
       {
         assertion = services != { } -> refpolicy;

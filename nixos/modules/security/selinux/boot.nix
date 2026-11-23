@@ -171,6 +171,18 @@ in
           serviceConfig.ExecStartPost = [ "${setup}" ];
         };
 
+        # A boot without SELinux (the last resort in the manual) creates
+        # files without labels. Make the next normal boot relabel.
+        selinux-relabel-after-disabled = {
+          description = "Schedule SELinux Relabelling After a Boot Without SELinux";
+          unitConfig.ConditionSecurity = "!selinux";
+          wantedBy = [ "multi-user.target" ];
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = "${lib.getExe' pkgs.coreutils "rm"} -f /var/lib/selinux-nixos/relabelled";
+          };
+        };
+
         # The setuid wrappers are created at boot on their own tmpfs, where
         # new files get the filesystem's default type. Give them their
         # proper labels as soon as they exist.
