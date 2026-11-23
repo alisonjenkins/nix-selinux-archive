@@ -1,5 +1,6 @@
 /nix	-d	gen_context(system_u:object_r:nix_store_t,s0)
 /nix/var(/.*)?	gen_context(system_u:object_r:nix_var_t,s0)
+/nix/var/nix/builds(/.*)?	gen_context(system_u:object_r:nix_build_tmp_t,s0)
 /nix/store(/.*)?	gen_context(system_u:object_r:nix_store_t,s0)
 
 # Store paths are laid out like /usr. These rules match on patterns any

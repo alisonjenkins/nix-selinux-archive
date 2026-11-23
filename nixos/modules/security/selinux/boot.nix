@@ -31,11 +31,6 @@ let
       --rev ${cfg.labelRevision} \
       --exact-rev ${exactRevision} \
       --exact-file ${cfg.policy}/nixos/exact-paths \
-      ${
-        lib.concatMapStringsSep " " (e: "--exact ${lib.escapeShellArg (toString e.path)}") (
-          lib.attrValues cfg.entrypoints
-        )
-      } \
       ${lib.concatMapStringsSep " " (p: "--relabel ${lib.escapeShellArg p}") cfg.relabelPaths} \
       "$@"
   '';

@@ -24,6 +24,7 @@
         type = "refpolicy";
         mode = if enforcing then "enforcing" else "permissive";
         logAllDenials = !enforcing;
+        confine.nixBuilds = true;
       };
 
       services.openssh.enable = true;
@@ -40,7 +41,7 @@
 
     def denials():
         summary = machine.succeed(
-            "journalctl -b -k --no-pager -o cat | grep 'avc:  denied'"
+            "journalctl -b --no-pager -o cat | grep 'avc:  denied'"
             " | sed -E 's/.*denied  (\\{[^}]*\\}).*comm=\"([^\"]*)\".*scontext=([^ ]+) tcontext=([^ ]+) tclass=([^ ]+).*/\\3 \\4 \\5 \\1 \\2/'"
             " | sort | uniq -c | sort -rn | head -150 || true"
         ).strip()
@@ -128,14 +129,33 @@
             assert found == "", found
         assert machine.succeed("sesearch -A -s initrc_t -t shadow_t -c file -p read").strip() != ""
 
-    with subtest("the Nix daemon builds a derivation"):
+    with subtest("the Nix daemon runs in its domain and builds in the build domain"):
+        machine.succeed("systemctl start nix-daemon.service")
+        assert domain("nix-daemon.service") == "nix_daemon_t"
+        # The builder reports its own context. Through the daemon, as
+        # every user's builds go.
         machine.succeed(
-            "nix-build --no-substitute -E '"
+            "NIX_REMOTE=daemon nix-build --no-substitute -E '"
             "derivation { name = \"selinux-test\"; system = builtins.currentSystem;"
-            " builder = \"/bin/sh\"; args = [ \"-c\" \"echo built > $out\" ]; }'"
+            " builder = \"/bin/sh\"; args = [ \"-c\""
+            " \"read -r context < /proc/self/attr/current; echo $context > $out\" ]; }'"
             " -o /tmp/result"
         )
-        assert machine.succeed("cat /tmp/result").strip() == "built"
+        context = machine.succeed("tr -d '\\000' < /tmp/result").strip()
+        print(context)
+        if strict:
+            assert context == "system_u:system_r:nix_build_t:s0", context
+        # A build cannot read the password database, write the Nix
+        # database or act on other processes.
+        for query in [
+            "-t shadow_t -c file -p read",
+            "-t nix_var_t -c file -p write",
+            "-t etc_t -c file -p write",
+            "-t init_t -c process -p signal",
+            "-t unconfined_t -c process -p ptrace",
+        ]:
+            rules = machine.succeed(f"sesearch -A -s nix_build_t {query} | grep -v ':False$' || true")
+            assert "allow" not in rules, rules
 
     with subtest("nothing was denied"):
         assert denials() == ""

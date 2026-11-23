@@ -16,6 +16,9 @@
   extraCil ? [ ],
   # Extra file context lines, appended after the base rules.
   extraFileContexts ? "",
+  # A directory with `rules` (file context rules for exact store paths)
+  # and `paths` (the files they name), or null.
+  exactRules ? null,
 }:
 
 runCommand "selinux-policy-${name}"
@@ -48,8 +51,11 @@ runCommand "selinux-policy-${name}"
     secilc -c ${toString policyVersion} -o "$policy" -f /dev/null \
       flask.cil ${../../policy/minimal/base.cil} $extraCil
 
+    mkdir -p $out/nixos
     cat ${../../policy/minimal/file_contexts} "$extraFileContextsPath" \
+      ${lib.optionalString (exactRules != null) "${exactRules}/rules"} \
       > $out/contexts/files/file_contexts
+    cat ${if exactRules != null then "${exactRules}/paths" else "/dev/null"} > $out/nixos/exact-paths
 
     # Reject file contexts that name types the policy does not define.
     setfiles -c "$policy" $out/contexts/files/file_contexts

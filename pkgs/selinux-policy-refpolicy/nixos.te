@@ -183,6 +183,14 @@ allow systemd_tmpfiles_t lib_t:lnk_file manage_lnk_file_perms;
 allow systemd_machine_id_setup_t self:process getcap;
 allow systemd_machine_id_setup_t { fs_t nsfs_t }:filesystem getattr;
 
+# With persistent storage journald creates /var/log/journal itself. Give
+# the directory the journal type from the start; left with the type of
+# /var/log, the flush at the next boot cannot read the files in it.
+gen_require(`
+	type systemd_journal_t;
+')
+filetrans_pattern(syslogd_t, var_log_t, systemd_journal_t, dir, "journal")
+
 # journalctl run as a system service, for example to rebuild the
 # catalog or to flush the journal.
 allow systemd_journal_init_t var_log_t:dir search_dir_perms;
@@ -198,3 +206,123 @@ optional_policy(`
 
 	allow system_dbusd_t init_t:system status;
 ')
+
+########################################
+# The Nix daemon and builds
+#
+
+## <desc>
+## <p>
+## Run the programs the Nix daemon starts, which are the builders of
+## derivations, in the confined domain nix_build_t.
+## </p>
+## </desc>
+gen_tunable(nix_confine_builds, false)
+
+# The daemon manages the store and its database as root on behalf of
+# every user, so its own domain is not restricted. It exists so that what
+# the daemon starts can be told apart from what a user starts.
+type nix_daemon_t;
+type nix_exec_t;
+init_daemon_domain(nix_daemon_t, nix_exec_t)
+unconfined_domain(nix_daemon_t)
+
+# A build: the builder of a derivation and everything it runs. Nix
+# already isolates builds with namespaces and separate users; this domain
+# limits what a build that breaks out of that isolation can reach.
+type nix_build_t;
+domain_type(nix_build_t)
+role system_r types nix_build_t;
+
+# Working directories of builds.
+type nix_build_tmp_t;
+files_type(nix_build_tmp_t)
+
+filetrans_pattern(nix_daemon_t, nix_var_t, nix_build_tmp_t, dir, "builds")
+
+gen_require(`
+	type bin_t;
+	type shell_exec_t;
+')
+
+# A builder is an ordinary program: a shell, or a freshly built file that
+# has no specific label yet. Any program the daemon runs enters the build
+# domain. Nix starts builders with no_new_privs set.
+allow nix_daemon_t nix_build_t:process { transition sigchld sigkill sigstop signull signal };
+allow nix_daemon_t nix_build_t:process2 { nnp_transition nosuid_transition };
+allow nix_build_t { bin_t shell_exec_t nix_store_t }:file entrypoint;
+tunable_policy(`nix_confine_builds',`
+	type_transition nix_daemon_t { bin_t shell_exec_t nix_store_t }:process nix_build_t;
+')
+
+# The daemon hands the build its log pipe and waits for it.
+allow nix_build_t nix_daemon_t:fd use;
+allow nix_build_t nix_daemon_t:fifo_file rw_fifo_file_perms;
+allow nix_build_t nix_daemon_t:process sigchld;
+
+allow nix_build_t self:process { fork sigchld sigkill sigstop signull signal getsched setsched getsession getpgid setpgid getcap getattr setrlimit setfscreate ptrace execmem execstack };
+allow nix_build_t self:fifo_file manage_fifo_file_perms;
+allow nix_build_t self:unix_stream_socket { create_stream_socket_perms connectto };
+allow nix_build_t self:unix_dgram_socket { create_socket_perms sendto };
+allow nix_build_t self:tcp_socket create_stream_socket_perms;
+allow nix_build_t self:udp_socket create_socket_perms;
+allow nix_build_t self:netlink_route_socket r_netlink_socket_perms;
+allow nix_build_t self:sem create_sem_perms;
+allow nix_build_t self:shm create_shm_perms;
+allow nix_build_t self:msgq create_msgq_perms;
+allow nix_build_t self:user_namespace create;
+allow nix_build_t self:cap_userns { chown dac_override dac_read_search fowner fsetid kill setgid setuid setpcap sys_chroot sys_admin sys_ptrace mknod net_admin net_bind_service net_raw };
+
+# Outputs are written in the store, where a new file has the generic
+# store type, and scratch files in the build directory. Both hold
+# programs that the build runs.
+manage_dirs_pattern(nix_build_t, { nix_store_t nix_build_tmp_t }, { nix_store_t nix_build_tmp_t })
+manage_files_pattern(nix_build_t, { nix_store_t nix_build_tmp_t }, { nix_store_t nix_build_tmp_t })
+manage_lnk_files_pattern(nix_build_t, { nix_store_t nix_build_tmp_t }, { nix_store_t nix_build_tmp_t })
+manage_fifo_files_pattern(nix_build_t, { nix_store_t nix_build_tmp_t }, { nix_store_t nix_build_tmp_t })
+manage_sock_files_pattern(nix_build_t, { nix_store_t nix_build_tmp_t }, { nix_store_t nix_build_tmp_t })
+allow nix_build_t { nix_store_t nix_build_tmp_t }:file { execute execute_no_trans map execmod };
+
+# Inputs are other store paths, whose files carry whatever type the
+# labelling rules give them. A build reads and runs all of them. It never
+# needs the password database.
+files_list_non_auth_dirs(nix_build_t)
+files_read_non_auth_files(nix_build_t)
+files_read_all_symlinks(nix_build_t)
+corecmd_exec_all_executables(nix_build_t)
+libs_exec_lib_files(nix_build_t)
+libs_exec_ld_so(nix_build_t)
+files_exec_usr_files(nix_build_t)
+files_exec_etc_files(nix_build_t)
+
+# The sandbox: its own /dev on a tmpfs with a few device nodes, a private
+# /dev/shm and pseudo-terminals, /proc.
+fs_getattr_all_fs(nix_build_t)
+fs_manage_tmpfs_dirs(nix_build_t)
+fs_manage_tmpfs_files(nix_build_t)
+fs_manage_tmpfs_symlinks(nix_build_t)
+fs_manage_tmpfs_sockets(nix_build_t)
+dev_getattr_all_chr_files(nix_build_t)
+dev_rw_null(nix_build_t)
+dev_rw_zero(nix_build_t)
+dev_read_rand(nix_build_t)
+dev_read_urand(nix_build_t)
+dev_rw_kvm(nix_build_t)
+term_list_ptys(nix_build_t)
+term_use_ptmx(nix_build_t)
+term_use_generic_ptys(nix_build_t)
+term_use_controlling_term(nix_build_t)
+kernel_read_system_state(nix_build_t)
+kernel_read_network_state(nix_build_t)
+kernel_read_all_sysctls(nix_build_t)
+
+# Fixed-output derivations download their sources.
+corenet_all_recvfrom_unlabeled(nix_build_t)
+corenet_tcp_bind_generic_node(nix_build_t)
+corenet_udp_bind_generic_node(nix_build_t)
+corenet_tcp_bind_all_ports(nix_build_t)
+corenet_udp_bind_all_ports(nix_build_t)
+corenet_tcp_connect_all_ports(nix_build_t)
+sysnet_read_config(nix_build_t)
+miscfiles_read_generic_certs(nix_build_t)
+miscfiles_read_localization(nix_build_t)

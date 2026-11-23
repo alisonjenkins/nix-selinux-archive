@@ -8,6 +8,9 @@
   name ? "refpolicy",
   policyVersion ? 33,
   extraFileContexts ? "",
+  # A directory with `rules` (file context rules for exact store paths)
+  # and `paths` (the files they name), or null.
+  exactRules ? null,
   # Packages whose programs get the types the reference policy gives the
   # same programs at their usual FHS locations.
   fhsPackages ? [ ],
@@ -101,9 +104,14 @@
     echo "FHS-derived rules: $(wc -l < fhs-rules)"
     cat fhs-rules
     # A rule the system configuration gives for the same path wins.
+    cp "$extraFileContextsPath" given-rules
+    ${lib.optionalString (exactRules != null) ''
+      cat ${exactRules}/rules >> given-rules
+      cat ${exactRules}/paths >> $out/nixos/exact-paths
+    ''}
     awk -F'\t' 'NR == FNR { given[$1] = 1; next } !($1 in given)' \
-      "$extraFileContextsPath" fhs-rules >> $out/contexts/files/file_contexts
-    cat "$extraFileContextsPath" >> $out/contexts/files/file_contexts
+      given-rules fhs-rules >> $out/contexts/files/file_contexts
+    cat given-rules >> $out/contexts/files/file_contexts
     ${lib.optionalString (seusers != null) ''
       cat ${builtins.toFile "seusers" seusers} > $out/seusers
     ''}
