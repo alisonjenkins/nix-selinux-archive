@@ -12,7 +12,7 @@
   name = if enforcing then "selinux-refpolicy" else "selinux-refpolicy-audit";
 
   nodes.machine =
-    { ... }:
+    { pkgs, ... }:
     {
       imports = [
         selinuxModule
@@ -26,6 +26,7 @@
       };
 
       services.openssh.enable = true;
+      environment.systemPackages = [ pkgs.setools ];
       users.users.alice = {
         isNormalUser = true;
         password = "foobar";
@@ -99,6 +100,20 @@
             machine.wait_for_file("/tmp/console-context")
             console = machine.succeed("cat /tmp/console-context").strip()
             assert console == "unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023", console
+
+    with subtest("confined services run in their domains"):
+        nscd = machine.succeed("ps -o label= -p $(systemctl show -P MainPID nscd.service)").strip()
+        assert nscd == "system_u:system_r:nscd_t:s0", nscd
+        # What confinement buys: unlike an unconfined service, sshd may
+        # not read the shadow file or load a kernel module.
+        for rule in [
+            "-s sshd_t -t shadow_t -c file -p read",
+            "-s sshd_t -c system -p module_load",
+            "-s nscd_t -t shadow_t -c file -p read",
+        ]:
+            found = machine.succeed(f"sesearch -A {rule}").strip()
+            assert found == "", found
+        assert machine.succeed("sesearch -A -s initrc_t -t shadow_t -c file -p read").strip() != ""
 
     with subtest("the Nix daemon builds a derivation"):
         machine.succeed(
