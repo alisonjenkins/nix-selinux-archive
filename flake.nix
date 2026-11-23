@@ -35,6 +35,12 @@
 
       packages = forAllSystems (system: {
         inherit (pkgsFor system) secilc selinux-policy-minimal nixos-selinux-setup;
+
+        # Measures the cost of labelling a desktop-sized closure. Large,
+        # so it is not among the checks.
+        selinux-measure-desktop = (pkgsFor system).testers.runNixOSTest (
+          import ./nixos/tests/selinux/measure.nix { selinuxModule = self.nixosModules.selinux; }
+        );
       });
 
       formatter = forAllSystems (system: (pkgsFor system).nixfmt);
