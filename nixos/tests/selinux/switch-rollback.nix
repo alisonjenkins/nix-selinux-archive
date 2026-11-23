@@ -57,10 +57,17 @@
         assert label("/var/lib/switch-test/file") == "system_u:object_r:var_t:s0"
 
     with subtest("switching loads the new policy and applies its labels"):
-        machine.succeed(
-            f"{base}/specialisation/newpolicy/bin/switch-to-configuration test >&2"
+        output = machine.succeed(
+            f"{base}/specialisation/newpolicy/bin/switch-to-configuration test 2>&1"
         )
+        print(output)
         healthy()
+        # The new rule is for a path outside the store, so the store is
+        # not labelled again: only the few paths with exact rules are.
+        assert "relabelling" in output, output
+        import re
+        relabelled = re.search(r"labelling (\d+) store paths", output)
+        assert relabelled is None or int(relabelled.group(1)) < 20, output
         machine.succeed(f"chcon {new_type} /tmp/probe")
         assert label("/var/lib/switch-test/file") == new_type
         systemd = label("$(readlink -f /run/current-system/systemd/lib/systemd/systemd)")

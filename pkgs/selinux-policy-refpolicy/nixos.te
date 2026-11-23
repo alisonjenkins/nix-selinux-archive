@@ -203,6 +203,8 @@ allow systemd_journal_init_t var_log_t:dir search_dir_perms;
 allow systemd_journal_init_t systemd_journal_t:file map;
 allow systemd_journal_init_t etc_runtime_t:file read_file_perms;
 allow systemd_journal_init_t tty_device_t:chr_file rw_chr_file_perms;
+# Looking up a user or group goes through nscd on NixOS.
+nscd_use(systemd_journal_init_t)
 
 # dbus-broker subscribes to systemd's unit state to activate services.
 optional_policy(`

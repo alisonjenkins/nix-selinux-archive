@@ -59,7 +59,7 @@
 
 ### Measurements and open questions for User Story 1
 
-- [ ] T029 [P] [US1] Measure labelling time and boot time added, first boot and unchanged boot, for the minimal closure and a larger server closure; record against SC-005 in `docs/design.md`
+- [x] T029 [P] [US1] Measure labelling time and boot time added, first boot and unchanged boot, for the minimal closure and a larger server closure; record against SC-005 in `docs/design.md`
 - [x] T030 [P] [US1] Test whether labels survive `nix-store --optimise`, `nix-store --verify --repair`, and garbage collection followed by re-substitution; record results
 - [x] T031 [P] [US1] Test what a shared (hardlinked) file's label is when two paths map to different types, and decide the version 1 rule for store optimisation
 - [ ] T032 [US1] Write the M1 section of `docs/design.md`: what works, measured numbers, answers to research.md questions 1 to 4, and what remains unknown
@@ -75,7 +75,7 @@
 - [x] T037 [US2] Label at switch: run the labeller in a private mount namespace before the new generation's services start, and load the new policy
 - [ ] T038 [US2] Refuse a switch whose policy fails to load in enforcing mode
 - [x] T039 [US2] Label and allow the privileged wrappers in `/run/wrappers` (labelled by `restorecon` after the wrappers service; wrappers keep a generic type and their targets get exact-path types, for example `unix_chkpwd`)
-- [ ] T040 [US2] Document recovery when an enforcing system fails to boot
+- [x] T040 [US2] Document recovery when an enforcing system fails to boot (`docs/manual.md`)
 
 ## Phase 5: User Story 4 - Roll back and upgrade safely (Priority: P3) (M2, outline)
 
@@ -91,12 +91,12 @@
 ## Phase 7: Hardening (M4, outline)
 
 - [ ] T046 Ephemeral root filesystems, large closures, interrupted labelling, store maintenance during use: one test or documented limit for each edge case in the spec
-- [ ] T047 Tune labelling until SC-005 is met (known cost: any change to file context rules, even one outside the store, relabels the whole store at switch; the revision should cover store rules only)
+- [x] T047 Tune labelling until SC-005 is met (known cost: any change to file context rules, even one outside the store, relabels the whole store at switch; the revision should cover store rules only)
 
 ## Phase 8: User Story 5 - Upstream package (Priority: P2) (M5, outline)
 
 - [x] T048 [US5] Finish `docs/design.md` with the threat model and the answers to each recorded objection
-- [ ] T049 [US5] Write the user manual chapter in `docs/manual.md`
+- [x] T049 [US5] Write the user manual chapter in `docs/manual.md` (`docs/manual.md`)
 - [ ] T050 [US5] Split the work into an ordered patch series against nixpkgs, each default-off with its test, starting with the smallest (kernel support and `secilc`)
 - [ ] T051 [US5] Have someone uninvolved reproduce M1 and M2 from the documentation (SC-008)
 - [ ] T052 [US5] With Alison's go-ahead, open the upstream discussion and the first pull request

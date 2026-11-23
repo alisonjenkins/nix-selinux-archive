@@ -123,14 +123,23 @@ All run as NixOS VM tests (`nix flake check`).
 | `selinux-switch-rollback` | Switching to a generation with a different policy and back changes the loaded policy and the labels both ways, with no denials. |
 | `selinux-refpolicy` | Reference policy, enforcing, zero denials: sshd, nscd, journald, logind, udev, D-Bus and the Nix daemon in their domains; SSH and console logins land in the mapped user context and are registered with logind; a Nix build runs in the build domain; reboot. |
 | `selinux-store-maintenance` | Store verification passes on a labelled store; optimisation and the label; garbage collection; a path that returns is labelled again. |
+| `selinux-recovery` | An enforcing configuration boots permissive with `enforcing=0` on the kernel command line, and without SELinux when it is left out of `lsm=`. |
 | `selinux-refpolicy-audit` | Development tool: the reference policy test in permissive mode, printing a summary of denials. |
 
-Measured so far, minimal closure of about 590 store paths: the first-boot labelling pass takes about 2 s with KVM and 35 to 45 s under software emulation. An unchanged boot does no store writes.
+Measured with KVM on a 32-core desktop (`nix build .#selinux-measure-desktop` for the second row):
+
+| Closure | Store paths | Files | First-boot labelling | Unchanged boot |
+|---|---|---|---|---|
+| Minimal system | about 590 | about 59,000 | about 2 s | no store writes |
+| Desktop applications (Firefox, Thunderbird, LibreOffice, GIMP, Inkscape, VLC), 6.7 GB | 1,102 | 121,766 | 6.1 s | 0.5 s |
+
+The first boot of the desktop closure took 17.6 s in total and an unchanged boot 12.5 s. Under software emulation the minimal first-boot pass takes 35 to 45 s.
 
 ## Known limits and open questions
 
-- **Not yet tried on a real machine**, on an ephemeral root, or with a large desktop closure. The first-boot pass scales with the number of files in the store.
-- **Any change to the generic rules relabels the whole store** at the next boot or switch. The revision should cover store rules only.
+- **Not yet tried on a real machine** or on an ephemeral root. The first-boot pass scales with the number of files in the store.
+- **A change to a generic rule that can apply to the store relabels the whole store** at the next boot or switch. Rules for paths outside the store do not.
+- **Hard links inside one store path** can join two names whose rules give different types, for example a file under `lib/` that is also linked under `share/`. The inode gets one of the two generic types and `setfiles` prints a warning. 72 such pairs appear in a desktop closure; none involves an exact rule.
 - **The whole store is labelled, not only the system closure.** This is simpler and covers user profiles, at the cost of a longer first pass.
 - **Paths built at run time carry the generic store type** until the next labelling run. Unconfined users can run them; a confined domain cannot.
 - **Confined builds are opt-in** and do not yet distinguish builders from hooks and the remote-build `ssh` client. A build may write any store file that still has the generic type, where file permissions allow it.

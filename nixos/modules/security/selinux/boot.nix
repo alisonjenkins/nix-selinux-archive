@@ -29,6 +29,7 @@ let
       --policy ${policyFile} \
       --spec ${cfg.policy}/contexts/files/file_contexts \
       --rev ${cfg.labelRevision} \
+      --mutable-rev ${cfg.mutableLabelRevision} \
       --exact-rev ${exactRevision} \
       --exact-file ${cfg.policy}/nixos/exact-paths \
       ${lib.concatMapStringsSep " " (p: "--relabel ${lib.escapeShellArg p}") cfg.relabelPaths} \
@@ -86,7 +87,7 @@ in
           echo "SELinux is not active in this kernel - skipping"
           exit 0
         fi
-        mountpoint -q /sys/fs/selinux || mount -t selinuxfs selinuxfs /sys/fs/selinux
+        [ -e /sys/fs/selinux/load ] || mount -t selinuxfs selinuxfs /sys/fs/selinux
 
         # The setup tool lives in the new root and needs these there. They
         # are fresh mounts, not binds of the initrd's own: unmounting a bind

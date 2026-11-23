@@ -58,6 +58,19 @@ let
         builtins.readFile ../../../../policy/minimal/file_contexts
     )
     + cfg.fileContexts;
+
+  # Whether a file context rule can apply to a path in the Nix store. A
+  # rule that begins with a literal directory other than /nix cannot, nor
+  # one for /nix/var. Anything else, such as `/.*`, might.
+  storeRule =
+    line:
+    let
+      first = builtins.match "/([A-Za-z0-9_.-]+)([/[:space:](].*)?" line;
+    in
+    line != ""
+    && !(lib.hasPrefix "#" line)
+    && !(lib.hasPrefix "/nix/var" line)
+    && (first == null || builtins.head first == "nix");
 in
 {
   options.security.selinux = {
@@ -190,8 +203,19 @@ in
       type = lib.types.str;
       internal = true;
       description = ''
-        Identifies the generic labelling rules. Store paths labelled under
-        one revision are not visited again until it changes.
+        Identifies the generic labelling rules that can apply to the Nix
+        store. Store paths labelled under one revision are not visited
+        again until it changes.
+      '';
+    };
+
+    mutableLabelRevision = lib.mkOption {
+      type = lib.types.str;
+      internal = true;
+      description = ''
+        Identifies all generic labelling rules. The paths in
+        {option}`security.selinux.relabelPaths` are relabelled when it
+        changes.
       '';
     };
   };
@@ -235,7 +259,12 @@ in
           }
       );
 
-      labelRevision = builtins.substring 0 32 (builtins.hashString "sha256" genericFileContexts);
+      labelRevision = builtins.substring 0 32 (
+        builtins.hashString "sha256" (
+          lib.concatStringsSep "\n" (lib.filter storeRule (lib.splitString "\n" genericFileContexts))
+        )
+      );
+      mutableLabelRevision = builtins.substring 0 32 (builtins.hashString "sha256" genericFileContexts);
 
       # PID 1 enters its domain only if the systemd binary carries this type.
       entrypoints = {
