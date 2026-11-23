@@ -45,6 +45,8 @@ With `refpolicy`, these run in the reference policy's domains without further co
 |---|---|---|
 | `confine.sshd` | on | The OpenSSH daemon runs in `sshd_t`. |
 | `confine.nscd` | on | The name service cache daemon runs in `nscd_t`. |
+| `confine.getty` | on | The console login prompt runs in `getty_t` and the login program in `local_login_t`. |
+| `confine.dhcpcd` | on | The DHCP client runs in `dhcpc_t`. |
 | `confine.nix` | on | The Nix daemon runs in `nix_daemon_t`, which is not restricted. |
 | `confine.nixBuilds` | off | Builders started by the Nix daemon run in `nix_build_t`. See below. |
 
