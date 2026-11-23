@@ -88,7 +88,7 @@ Setuid wrappers keep a generic type. The program a wrapper executes carries the 
 
 Protected against:
 
-- **A compromised confined service.** With `refpolicy`, sshd, nscd, D-Bus, journald, udev, logind and the other systemd helpers are limited to what their domains allow. The test checks, for example, that the loaded policy has no rule letting `sshd_t` read the shadow file or load a kernel module.
+- **A compromised confined service.** With `refpolicy`, sshd, nscd, D-Bus, journald, udev, logind and the other systemd helpers, the DHCP client, the console login prompt and the login program are limited to what their domains allow. The test checks, for example, that the loaded policy has no rule letting `sshd_t` read the shadow file or load a kernel module.
 - **A local user imitating a trusted program** to obtain its type. Only exact paths carry specific types.
 
 Not protected against, by design in this version:
@@ -122,7 +122,7 @@ All run as NixOS VM tests (`nix flake check`).
 | `selinux-permissive-boot` | Policy loaded in the initrd, every file in the system closure labelled, PID 1 in `init_t`, activation-created files labelled, denials logged, second boot relabels nothing. |
 | `selinux-enforcing` | Enforcing boot, SSH, a Nix build, a confined demo service denied a file it has no rule for, forged path gets no privileged type, reboot. |
 | `selinux-switch-rollback` | Switching to a generation with a different policy and back changes the loaded policy and the labels both ways, with no denials. |
-| `selinux-refpolicy` | Reference policy, enforcing, zero denials: sshd, nscd, journald, logind, udev, D-Bus and the Nix daemon in their domains; SSH and console logins land in the mapped user context and are registered with logind; a Nix build runs in the build domain; reboot. |
+| `selinux-refpolicy` | Reference policy, enforcing, zero denials: sshd, nscd, journald, logind, udev, D-Bus, the DHCP client, the login prompt and the Nix daemon in their domains; SSH and console logins land in the mapped user context and are registered with logind; a Nix build runs in the build domain; reboot. |
 | `selinux-store-maintenance` | Store verification passes on a labelled store; optimisation and the label; garbage collection; a path that returns is labelled again. |
 | `selinux-recovery` | An enforcing configuration boots permissive with `enforcing=0` on the kernel command line, and without SELinux when it is left out of `lsm=`. |
 | `selinux-ephemeral-root` | With the root on tmpfs and only the store kept, both policies boot enforcing with no denials, twice; the store is not labelled again. |

@@ -342,3 +342,50 @@ corenet_tcp_connect_all_ports(nix_build_t)
 sysnet_read_config(nix_build_t)
 miscfiles_read_generic_certs(nix_build_t)
 miscfiles_read_localization(nix_build_t)
+
+########################################
+# Network setup and console login
+#
+
+gen_require(`
+	type dhcpc_t;
+	type getty_t;
+	type net_conf_t;
+')
+
+# NixOS manages /etc/resolv.conf with resolvconf, whose state is under
+# /run/resolvconf. Its service creates both, and the DHCP client's hook
+# updates them and restarts the name service cache.
+sysnet_runtime_filetrans_config(initrc_t, dir, "resolvconf")
+sysnet_etc_filetrans_config(initrc_t, "resolv.conf")
+manage_dirs_pattern(dhcpc_t, net_conf_t, net_conf_t)
+manage_files_pattern(dhcpc_t, net_conf_t, net_conf_t)
+init_start_generic_units(dhcpc_t)
+init_get_generic_units_status(dhcpc_t)
+
+# systemd passes credentials to the login prompt in a directory on a
+# tmpfs under /run/credentials.
+fs_list_tmpfs(getty_t)
+
+# PAM runs its password helper through the setuid wrapper in
+# /run/wrappers, which has the generic program type. The helper itself
+# has its own type and domain.
+gen_require(`
+	type local_login_t;
+')
+corecmd_exec_bin(local_login_t)
+
+# pam_lastlog2 keeps login records in an SQLite database under
+# /var/lib/lastlog, which creates and removes journal files next to it.
+gen_require(`
+	type lastlog_t;
+	type systemd_logind_t;
+')
+files_search_var_lib({ local_login_t sshd_t })
+manage_dirs_pattern({ local_login_t sshd_t }, lastlog_t, lastlog_t)
+manage_files_pattern({ local_login_t sshd_t }, lastlog_t, lastlog_t)
+
+# pam_systemd registers the session with logind over its varlink socket.
+allow local_login_t init_runtime_t:sock_file write_sock_file_perms;
+allow local_login_t systemd_logind_t:unix_stream_socket connectto;
+fs_getattr_xattr_fs(local_login_t)

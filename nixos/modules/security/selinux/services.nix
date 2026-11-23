@@ -11,6 +11,20 @@
 let
   cfg = config.security.selinux;
   refpolicy = cfg.type == "refpolicy";
+
+  # The first word of the unit's ExecStart, without systemd's prefixes.
+  dhcpcdProgram =
+    let
+      unit = config.systemd.services.dhcpcd or null;
+      command = unit.serviceConfig.ExecStart or null;
+      program = builtins.match "[@!+:-]*(/nix/store/[^ ]+).*" command;
+    in
+    if unit != null && (unit.enable or true) && lib.isString command && program != null then
+      # match drops the string's context; the policy build needs it to
+      # see the file.
+      lib.addContextFrom command (builtins.head program)
+    else
+      null;
 in
 {
   options.security.selinux.confine = {
@@ -29,6 +43,24 @@ in
         Run the name service cache daemon in the policy's `nscd_t`
         domain. Confined programs resolve users and hosts through it.
       '';
+    };
+
+    getty = lib.mkOption {
+      type = lib.types.bool;
+      default = refpolicy;
+      defaultText = lib.literalExpression ''config.security.selinux.type == "refpolicy"'';
+      description = ''
+        Run the console login prompt in `getty_t` and the login program
+        in `local_login_t`. A user's session then starts in the context
+        the policy maps the user to.
+      '';
+    };
+
+    dhcpcd = lib.mkOption {
+      type = lib.types.bool;
+      default = refpolicy;
+      defaultText = lib.literalExpression ''config.security.selinux.type == "refpolicy"'';
+      description = "Run the DHCP client in the policy's `dhcpc_t` domain.";
     };
 
     nix = lib.mkOption {
@@ -67,7 +99,9 @@ in
         message = "security.selinux.confine.nixBuilds needs security.selinux.confine.nix.";
       }
       {
-        assertion = (cfg.confine.sshd || cfg.confine.nscd || cfg.confine.nix) -> refpolicy;
+        assertion =
+          (cfg.confine.sshd || cfg.confine.nscd || cfg.confine.nix || cfg.confine.getty || cfg.confine.dhcpcd)
+          -> refpolicy;
         message = "security.selinux.confine.* needs security.selinux.type = \"refpolicy\".";
       }
     ];
@@ -92,6 +126,24 @@ in
     };
 
     security.selinux.entrypoints = lib.mkMerge [
+      (lib.mkIf cfg.confine.getty {
+        agetty = {
+          path = lib.getExe' pkgs.util-linux "agetty";
+          type = "getty_exec_t";
+        };
+        login = {
+          path = config.services.getty.loginProgram;
+          type = "login_exec_t";
+        };
+      })
+      # The DHCP client's module builds its own variant of the package
+      # and does not expose it, so the program is taken from its unit.
+      (lib.mkIf (cfg.confine.dhcpcd && dhcpcdProgram != null) {
+        dhcpcd = {
+          path = dhcpcdProgram;
+          type = "dhcpc_exec_t";
+        };
+      })
       # The programs of the nix package are links to one file, which this
       # names through the link the daemon's unit starts.
       (lib.mkIf (cfg.confine.nix && config.nix.enable) {

@@ -134,7 +134,7 @@
             machine.send_chars("alice\n")
             machine.wait_until_tty_matches("1", "Password: ")
             machine.send_chars("foobar\n")
-            machine.wait_until_succeeds("pgrep -u alice bash")
+            machine.wait_until_succeeds("pgrep -u alice bash", timeout=60)
             machine.send_chars("id -Z > /tmp/console-context\n")
             machine.wait_for_file("/tmp/console-context")
             console = machine.succeed("cat /tmp/console-context").strip()
@@ -152,8 +152,17 @@
             "systemd-logind.service": "systemd_logind_t",
             "systemd-udevd.service": "udev_t",
             "dbus.service": "system_dbusd_t",
+            "dhcpcd.service": "dhcpc_t",
         }.items():
             assert domain(unit) == expected, (unit, domain(unit))
+        # The prompt on tty1 has become a login session by now.
+        machine.succeed("systemctl start getty@tty2.service")
+        gettys = machine.wait_until_succeeds("ps -C agetty -o label= | sort -u", timeout=30).strip()
+        print(gettys)
+        assert gettys == "system_u:system_r:getty_t:s0", gettys
+        if strict:
+            logins = machine.succeed("ps -C login -o label= | sort -u").strip()
+            assert logins == "system_u:system_r:local_login_t:s0", logins
         # What confinement buys: unlike an unconfined service, sshd may
         # not read the shadow file or load a kernel module.
         for rule in [
