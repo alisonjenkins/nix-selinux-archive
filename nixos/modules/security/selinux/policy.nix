@@ -21,7 +21,15 @@ let
     )
   );
 
-  genericFileContexts = builtins.readFile ../../../../policy/minimal/file_contexts + cfg.fileContexts;
+  genericFileContexts =
+    (
+      if cfg.type == "refpolicy" then
+        pkgs.selinux-refpolicy.version
+        + builtins.readFile ../../../../pkgs/selinux-policy-refpolicy/nixos.fc
+      else
+        builtins.readFile ../../../../policy/minimal/file_contexts
+    )
+    + cfg.fileContexts;
 in
 {
   options.security.selinux = {
@@ -120,13 +128,24 @@ in
   config = lib.mkIf cfg.enable {
     security.selinux = {
       policy = lib.mkDefault (
-        pkgs.callPackage ../../../../pkgs/selinux-policy-minimal {
-          inherit secilc;
-          name = cfg.type;
-          policyVersion = if cfg.policyVersion != null then cfg.policyVersion else 33;
-          extraCil = lib.mapAttrsToList (name: module: pkgs.writeText "${name}.cil" module.cil) cfg.modules;
-          extraFileContexts = cfg.fileContexts + exactRules;
-        }
+        if cfg.type == "refpolicy" then
+          assert lib.assertMsg (cfg.modules == { }) ''
+            security.selinux.modules is not supported with the refpolicy
+            policy type yet.
+          '';
+          pkgs.callPackage ../../../../pkgs/selinux-policy-refpolicy {
+            name = cfg.type;
+            policyVersion = if cfg.policyVersion != null then cfg.policyVersion else 33;
+            extraFileContexts = cfg.fileContexts + exactRules;
+          }
+        else
+          pkgs.callPackage ../../../../pkgs/selinux-policy-minimal {
+            inherit secilc;
+            name = cfg.type;
+            policyVersion = if cfg.policyVersion != null then cfg.policyVersion else 33;
+            extraCil = lib.mapAttrsToList (name: module: pkgs.writeText "${name}.cil" module.cil) cfg.modules;
+            extraFileContexts = cfg.fileContexts + exactRules;
+          }
       );
 
       labelRevision = builtins.substring 0 32 (builtins.hashString "sha256" genericFileContexts);

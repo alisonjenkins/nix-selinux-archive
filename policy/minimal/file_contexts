@@ -37,4 +37,4 @@
 /nix/store/[^/]+/lib(32|64)?(/.*)?	system_u:object_r:lib_t:s0
 /nix/store/[^/]+/libexec(/.*)?	system_u:object_r:bin_t:s0
 /nix/store/[^/]+/s?bin(/.*)?	system_u:object_r:bin_t:s0
-/nix/store/[^/]+/(etc|lib|share)/systemd/(system|user|network)(/.*)?	system_u:object_r:systemd_unit_t:s0
+/nix/store/[^/]+/(etc|lib|share|example)/systemd/(system|user|network)(/.*)?	system_u:object_r:systemd_unit_t:s0

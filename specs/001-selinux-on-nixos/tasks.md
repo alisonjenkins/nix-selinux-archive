@@ -69,8 +69,8 @@
 ## Phase 4: User Story 2 - Enforcing minimal system (Priority: P2) (M2, outline)
 
 - [ ] T033 [US2] Tests first: `enforcing-boot.nix` covering boot, console login, SSH login, a configuration switch, a package build, reboot, with an allow-list of expected denials that must end empty
-- [ ] T034 [US2] Build refpolicy offline in `pkgs/selinux-policy-nixos/` (modular assembly, monolithic as fallback) with an unconfined-by-default module set
-- [ ] T035 [US2] Write the NixOS policy layer in `policy/nixos/`: store types, Nix daemon, activation, wrappers directory, path aliases for NixOS locations
+- [x] T034 [US2] Build refpolicy offline in `pkgs/selinux-policy-nixos/` (modular assembly, monolithic as fallback) with an unconfined-by-default module set (done as `pkgs/selinux-policy-refpolicy`: monolithic build of the nixpkgs refpolicy source, selected with `security.selinux.type = "refpolicy"`)
+- [ ] T035 [US2] Write the NixOS policy layer in `policy/nixos/`: store types, Nix daemon, activation, wrappers directory, path aliases for NixOS locations (started: `nixos.te` and `nixos.fc` give store types and generic labels, and `refpolicy.nix` boots enforcing with no denials; services all run in the unconfined `initrc_t`, there is no Nix daemon domain, and `security.selinux.modules` is not supported with refpolicy yet)
 - [ ] T036 [US2] Enable SELinux in PAM, OpenSSH and D-Bus in `userland.nix`; add login mappings and PAM session entries
 - [x] T037 [US2] Label at switch: run the labeller in a private mount namespace before the new generation's services start, and load the new policy
 - [ ] T038 [US2] Refuse a switch whose policy fails to load in enforcing mode
