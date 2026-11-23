@@ -18,7 +18,7 @@ Design rationale and sources are in [research.md](./research.md). The option int
 **Target Platform**: NixOS on x86_64-linux first, aarch64-linux second. Filesystems with extended attribute support (ext4, xfs, btrfs).
 **Project Type**: Operating system module set with packages and VM tests, in a flake.
 **Performance Goals**: No more than 30 seconds added to first boot and 5 seconds to later unchanged boots for a typical server closure (SC-005).
-**Constraints**: Unmodified Nix (FR-008). Zero change when disabled (FR-002). Policy fully built at build time (FR-004). SELinux and AppArmor mutually exclusive in version 1 (FR-025). No upstream contact until Alison decides.
+**Constraints**: Unmodified Nix (FR-008). Zero change when disabled (FR-002). Policy fully built at build time (FR-004). SELinux and AppArmor mutually exclusive in version 1 (FR-025). No upstream contact until the maintainer decides.
 **Scale/Scope**: System closures of roughly 100,000 to 300,000 files. First milestone confines nothing. Enforcing milestone covers boot, login, SSH, switch and Nix daemon use on a minimal server.
 
 ## Constitution Check
