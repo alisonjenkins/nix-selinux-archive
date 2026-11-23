@@ -113,7 +113,7 @@ With `refpolicy`, write the module in the reference policy's language and name t
 
 systemd then starts the service in `myservice_t`, where it may do only what the module allows. Booleans and tunables are set with `security.selinux.booleans`.
 
-The policy is part of the system closure. There is no mutable policy store: `semodule` and `setsebool -P` have nothing to write to. A change to the policy is a change to the configuration, and it switches and rolls back with the system generation.
+The policy is part of the system closure. There is no mutable policy store: `semodule` and `setsebool -P` have nothing to write to. A change to the policy is a change to the configuration, and it switches and rolls back with the system generation. A switch is refused before anything is activated when the new policy's format version is newer than the running kernel accepts; set {option}`security.selinux.policyVersion`, or activate the generation with `boot` and reboot into its kernel.
 
 ## Finding out what is denied {#module-security-selinux-denials}
 
