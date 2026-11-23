@@ -56,5 +56,12 @@ in
         failed = disabled.succeed("systemctl --failed --no-legend").strip()
         assert failed == "", failed
         print(disabled.succeed("journalctl -b --no-pager | grep -i selinux || true"))
+        # Files made now have no labels, so the next boot with SELinux
+        # must relabel: the record of the last relabelling is removed.
+        disabled.succeed(
+            "mkdir -p /var/lib/selinux-nixos && touch /var/lib/selinux-nixos/relabelled",
+            "systemctl restart selinux-relabel-after-disabled.service",
+        )
+        disabled.fail("test -e /var/lib/selinux-nixos/relabelled")
   '';
 }

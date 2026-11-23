@@ -35,6 +35,17 @@ let
       ${lib.concatMapStringsSep " " (p: "--relabel ${lib.escapeShellArg p}") cfg.relabelPaths} \
       "$@"
   '';
+
+  storeLabelsPath = pkgs.runCommand "selinux-store-labels-path" { } ''
+    mkdir -p $out/lib/systemd/system
+    {
+      echo "[Unit]"
+      echo "Description=Watch Nix Store Files That Have Specific SELinux Labels"
+      echo "ConditionSecurity=selinux"
+      echo "[Path]"
+      sed 's/^/PathChanged=/' ${cfg.policy}/nixos/exact-paths
+    } > $out/lib/systemd/system/selinux-store-labels.path
+  '';
 in
 {
   config = lib.mkIf cfg.enable {
@@ -107,53 +118,79 @@ in
       '';
     };
 
-    # After activation: restore labels on the mutable paths if the rules
-    # changed. On first boot this covers what activation just created.
-    systemd.services = {
-      selinux-relabel = {
-        description = "Restore SELinux Labels on Mutable Paths";
-        unitConfig = {
-          DefaultDependencies = false;
-          ConditionSecurity = "selinux";
+    systemd = {
+      # Watches every store file that has a specific label. Whatever
+      # replaces one of them (any form of store optimisation, a repair)
+      # starts selinux-store-labels.service, which puts the label back.
+      # The list of files is known only once the policy is built, so the
+      # unit is generated there.
+      packages = [ storeLabelsPath ];
+      paths.selinux-store-labels.wantedBy = [ "multi-user.target" ];
+
+      services = {
+        # After activation: restore labels on the mutable paths if the
+        # rules changed. On first boot this covers what activation just
+        # created.
+        selinux-relabel = {
+          description = "Restore SELinux Labels on Mutable Paths";
+          unitConfig = {
+            DefaultDependencies = false;
+            ConditionSecurity = "selinux";
+          };
+          wantedBy = [ "sysinit.target" ];
+          after = [ "local-fs.target" ];
+          before = [
+            "sysinit.target"
+            "shutdown.target"
+            # These create and adjust files under the paths being relabelled.
+            "systemd-tmpfiles-setup.service"
+            "systemd-journal-flush.service"
+          ];
+          conflicts = [ "shutdown.target" ];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart = "${setup} --relabel-mutable";
+          };
         };
-        wantedBy = [ "sysinit.target" ];
-        after = [ "local-fs.target" ];
-        before = [
-          "sysinit.target"
-          "shutdown.target"
-          # These create and adjust files under the paths being relabelled.
-          "systemd-tmpfiles-setup.service"
-          "systemd-journal-flush.service"
+
+        # Store optimisation replaces identical files with hard links to one
+        # inode, and may keep the inode of a copy with a generic label.
+        # Started by the path unit below whenever that happens.
+        selinux-store-labels = {
+          description = "Restore SELinux Labels in the Nix Store";
+          unitConfig.ConditionSecurity = "selinux";
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = setup;
+          };
+        };
+
+        # The scheduled optimisation does not finish before labels are back.
+        nix-optimise = lib.mkIf config.nix.optimise.automatic {
+          serviceConfig.ExecStartPost = [ "${setup}" ];
+        };
+
+        # A boot without SELinux (the last resort in the manual) creates
+        # files without labels. Make the next normal boot relabel.
+        selinux-relabel-after-disabled = {
+          description = "Schedule SELinux Relabelling After a Boot Without SELinux";
+          unitConfig.ConditionSecurity = "!selinux";
+          wantedBy = [ "multi-user.target" ];
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = "${lib.getExe' pkgs.coreutils "rm"} -f /var/lib/selinux-nixos/relabelled";
+          };
+        };
+
+        # The setuid wrappers are created at boot on their own tmpfs, where
+        # new files get the filesystem's default type. Give them their
+        # proper labels as soon as they exist.
+        suid-sgid-wrappers.serviceConfig.ExecStartPost = [
+          "-${lib.getExe' pkgs.policycoreutils "restorecon"} -RF ${dirOf config.security.wrapperDir}"
         ];
-        conflicts = [ "shutdown.target" ];
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-          ExecStart = "${setup} --relabel-mutable";
-        };
       };
-
-      # Store optimisation replaces identical files with hard links to one
-      # inode, and may keep the inode of an unlabelled copy. Put exact
-      # labels back as soon as the scheduled optimisation finishes.
-      nix-optimise = lib.mkIf config.nix.optimise.automatic {
-        serviceConfig.ExecStartPost = [ "${setup}" ];
-      };
-
-      # The setuid wrappers are created at boot on their own tmpfs, where
-      # new files get the filesystem's default type. Give them their
-      # proper labels as soon as they exist.
-      suid-sgid-wrappers.serviceConfig.ExecStartPost = [
-        "-${lib.getExe' pkgs.policycoreutils "restorecon"} -RF ${dirOf config.security.wrapperDir}"
-      ];
     };
-
-    warnings = lib.optional (config.nix.settings.auto-optimise-store or false) ''
-      security.selinux: nix.settings.auto-optimise-store links identical
-      files as they are added to the store. A file that carries a specific
-      SELinux type can lose it that way until the next boot or switch.
-      Prefer nix.optimise.automatic, after which labels are restored.
-    '';
 
     # On switch: load the new generation's policy, apply its mode, and label
     # store paths that arrived with it, before any of its services start.

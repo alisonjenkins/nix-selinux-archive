@@ -13,9 +13,9 @@ Usage: nixos-selinux <command>
   denials --rules   The same, as allow rules to review and paste into
                     security.selinux.services.<name>.rules.
   denials --all     Since the journal began, not only this boot.
-  relabel           Restore the labels of the Nix store and of the
-                    system's mutable paths. Run after building or
-                    downloading something that needs a specific label.
+  relabel           Restore every label: the Nix store and the system's
+                    mutable paths. Rarely needed; the system does this
+                    itself at boot, at switch and after optimisation.
   help              This text.
 USAGE
 }
@@ -163,7 +163,9 @@ cmd_denials() {
 
 cmd_relabel() {
   need_root relabel
-  exec "@setup@"
+  # Forget that the mutable paths were done, so they are done again.
+  rm -f /var/lib/selinux-nixos/relabelled
+  exec "@setup@" --relabel-mutable
 }
 
 case "${1:-help}" in

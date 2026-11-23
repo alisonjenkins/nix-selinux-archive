@@ -107,7 +107,7 @@ In order of preference, from the boot loader menu:
 
 1. **Boot the previous generation.**
 2. **Boot permissive once**: add `enforcing=0` to the kernel command line.
-3. **Boot without SELinux**: remove `selinux` from the `lsm=` kernel parameter. Run `nixos-selinux relabel` after the next normal boot.
+3. **Boot without SELinux**: remove `selinux` from the `lsm=` kernel parameter. The next normal boot relabels by itself.
 
 An enforcing system refuses to boot if its policy cannot be loaded, instead of running unprotected. A switch to a policy the running kernel cannot load is refused before anything changes.
 
@@ -116,15 +116,15 @@ An enforcing system refuses to boot if its policy cannot be loaded, instead of r
 - **The policy is part of the system.** It is built with the configuration and switches and rolls back with the generation. `semodule` and `setsebool -P` have nothing to write to; use `security.selinux.booleans` and the options above.
 - **Store files get harmless labels by pattern**: programs `bin_t`, libraries `lib_t`. Anyone can build a store path, so a pattern never grants privilege.
 - **Privileged labels go to exact store paths** that the configuration names. `security.selinux.services` does this for you; `security.selinux.entrypoints` does it for a single file.
-- **New store paths** have the generic label until the next boot, switch or `nixos-selinux relabel`.
+- **Labels look after themselves.** They are set at boot and at switch, and restored when anything replaces a labelled file. `nixos-selinux relabel` redoes everything by hand if you ever want to.
 
 ### Confined builds {#module-security-selinux-confined-builds}
 
-`confine.nixBuilds = true` runs builds in a domain that may write only the build's outputs and build directory, on top of the Nix sandbox. A `post-build-hook` and the `ssh` client for remote builders run in that domain too and will lack access, so leave it off if you use either.
+`confine.nixBuilds = true` runs builds in a domain that may write only the build's outputs and build directory, on top of the Nix sandbox. It cannot be combined with remote builders or a `post-build-hook`; the build says so.
 
 ### Store optimisation {#module-security-selinux-store-optimisation}
 
-`nix-store --optimise` links identical files together, and a linked file has one label. Labels are restored at boot, at switch and after `nix.optimise.automatic`. After optimising by hand, run `nixos-selinux relabel`. Do not use `nix.settings.auto-optimise-store`; the module warns about it.
+Safe in every form: `nix-store --optimise`, `nix.optimise.automatic` and `nix.settings.auto-optimise-store`. Optimisation links identical files together and can drop a label; the module notices and puts it back by itself.
 
 ## Limits {#module-security-selinux-limits}
 
