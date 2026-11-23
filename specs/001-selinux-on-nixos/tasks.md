@@ -74,7 +74,7 @@
 - [ ] T036 [US2] Enable SELinux in PAM, OpenSSH and D-Bus in `userland.nix`; add login mappings and PAM session entries (PAM and OpenSSH done for the refpolicy type, with login mappings in `security.selinux.loginMappings`; D-Bus not yet)
 - [x] T037 [US2] Label at switch: run the labeller in a private mount namespace before the new generation's services start, and load the new policy
 - [ ] T038 [US2] Refuse a switch whose policy fails to load in enforcing mode
-- [ ] T039 [US2] Label and allow the privileged wrappers in `/run/wrappers`
+- [x] T039 [US2] Label and allow the privileged wrappers in `/run/wrappers` (labelled by `restorecon` after the wrappers service; wrappers keep a generic type and their targets get exact-path types, for example `unix_chkpwd`)
 - [ ] T040 [US2] Document recovery when an enforcing system fails to boot
 
 ## Phase 5: User Story 4 - Roll back and upgrade safely (Priority: P3) (M2, outline)
@@ -86,7 +86,7 @@
 
 - [ ] T043 [US3] Tests first: `confined-service.nix` (service runs in its domain, forbidden access denied and logged) and `forged-path.nix` (an imitating package built by an unprivileged user gets no privileged label)
 - [ ] T044 [US3] Implement `security.selinux.modules`, `entrypoints` and `booleans`, with build failures that name the offending fragment
-- [ ] T045 [US3] Confine one network service end to end as the worked example
+- [x] T045 [US3] Confine one network service end to end as the worked example (sshd runs in `sshd_t` with refpolicy, with nscd and the password helper in their domains; see `services.nix` and `refpolicy.nix`)
 
 ## Phase 7: Hardening (M4, outline)
 
