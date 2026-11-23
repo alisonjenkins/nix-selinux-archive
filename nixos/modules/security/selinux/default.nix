@@ -52,6 +52,51 @@ in
       '';
     };
 
+    loginContexts = lib.mkOption {
+      type = lib.types.bool;
+      default = cfg.type == "refpolicy";
+      defaultText = lib.literalExpression ''config.security.selinux.type == "refpolicy"'';
+      description = ''
+        Build PAM and OpenSSH with SELinux support, so that login sessions
+        start in the context the policy maps the user to. The policy must
+        ship login mappings and default contexts; the minimal policy does
+        not.
+      '';
+    };
+
+    loginMappings = lib.mkOption {
+      type = lib.types.attrsOf (
+        lib.types.submodule {
+          options = {
+            user = lib.mkOption {
+              type = lib.types.str;
+              description = "SELinux user.";
+            };
+            range = lib.mkOption {
+              type = lib.types.str;
+              default = "s0";
+              description = "MLS or MCS range.";
+            };
+          };
+        }
+      );
+      default = {
+        root = {
+          user = "unconfined_u";
+          range = "s0-s0:c0.c1023";
+        };
+        __default__ = {
+          user = "unconfined_u";
+          range = "s0-s0:c0.c1023";
+        };
+      };
+      description = ''
+        Maps Linux login names to SELinux users, as in the `seusers` file.
+        `__default__` applies to every name not listed. The default leaves
+        all logins unconfined. Used by the `refpolicy` policy type.
+      '';
+    };
+
     relabelPaths = lib.mkOption {
       type = lib.types.listOf lib.types.path;
       default = [

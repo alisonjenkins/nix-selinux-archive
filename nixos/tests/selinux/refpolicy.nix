@@ -19,6 +19,10 @@
       };
 
       services.openssh.enable = true;
+      users.users.alice = {
+        isNormalUser = true;
+        password = "foobar";
+      };
       virtualisation.memorySize = 2048;
     };
 
@@ -66,9 +70,21 @@
             "ssh-keygen -q -t ed25519 -N ''' -f /root/.ssh/id_ed25519",
             "cp /root/.ssh/id_ed25519.pub /root/.ssh/authorized_keys",
         )
-        print(machine.succeed(
+        session = machine.succeed(
             "ssh -o StrictHostKeyChecking=no -o BatchMode=yes root@localhost id -Z"
-        ))
+        ).strip()
+        assert session == "unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023", session
+
+    with subtest("console login starts in the mapped context"):
+        machine.wait_until_tty_matches("1", "login: ")
+        machine.send_chars("alice\n")
+        machine.wait_until_tty_matches("1", "Password: ")
+        machine.send_chars("foobar\n")
+        machine.wait_until_succeeds("pgrep -u alice bash")
+        machine.send_chars("id -Z > /tmp/console-context\n")
+        machine.wait_for_file("/tmp/console-context")
+        console = machine.succeed("cat /tmp/console-context").strip()
+        assert console == "unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023", console
 
     with subtest("the Nix daemon builds a derivation"):
         machine.succeed(
