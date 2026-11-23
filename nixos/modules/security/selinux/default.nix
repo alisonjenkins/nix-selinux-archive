@@ -25,8 +25,12 @@ in
       ];
       default = "permissive";
       description = ''
-        Enforcement mode at boot. In permissive mode, actions the policy
-        does not allow still succeed and are logged.
+        `permissive` logs what the policy would block and blocks nothing.
+        `enforcing` blocks it. Start permissive.
+
+        If an enforcing system does not boot, choose the previous
+        generation in the boot loader, or add `enforcing=0` to the kernel
+        command line to boot permissive once.
       '';
     };
 

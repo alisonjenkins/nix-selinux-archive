@@ -17,6 +17,9 @@ Usage: nixos-selinux <command>
                     mutable paths. Rarely needed; the system does this
                     itself at boot, at switch and after optimisation.
   help              This text.
+
+Locked out of an enforcing system? In the boot loader, pick the previous
+generation, or add enforcing=0 to the kernel command line.
 USAGE
 }
 
@@ -77,6 +80,9 @@ cmd_status() {
   echo "SELinux:  active, $current"
   if [ "$current" != "@mode@" ]; then
     echo "          The configuration says @mode@. It applies at the next boot or switch."
+  fi
+  if [ "$current" = enforcing ]; then
+    echo "          Rescue, from the boot loader: the previous generation, or add enforcing=0."
   fi
   if [ "$current" = permissive ]; then
     echo "          Nothing is blocked. What would be blocked is logged: nixos-selinux denials"
