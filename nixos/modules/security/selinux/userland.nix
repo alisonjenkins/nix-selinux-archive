@@ -58,8 +58,6 @@ in
       secilc
     ];
 
-    security.auditd.enable = lib.mkIf cfg.developmentTools (lib.mkDefault true);
-
     # Sessions start in the context the policy maps the user to, instead
     # of inheriting the context of the login program. OpenSSH does this
     # itself when built with SELinux support; console logins use
@@ -67,13 +65,21 @@ in
     programs.ssh.package = lib.mkIf cfg.loginContexts (
       lib.mkDefault (pkgs.openssh.override { withSelinux = true; })
     );
-    security.pam.package = lib.mkIf cfg.loginContexts (lib.mkDefault selinuxPam);
-    security.pam.services.login.rules.session.selinux = lib.mkIf cfg.loginContexts {
-      # After every other session module: it sets the context of the next
-      # program the login process executes, which must be the user's shell.
-      order = 100000;
-      control = "required";
-      modulePath = "${config.security.pam.package}/lib/security/pam_selinux.so";
+
+    security = {
+      auditd.enable = lib.mkIf cfg.developmentTools (lib.mkDefault true);
+
+      pam = lib.mkIf cfg.loginContexts {
+        package = lib.mkDefault selinuxPam;
+        services.login.rules.session.selinux = {
+          # After every other session module: it sets the context of the
+          # next program the login process executes, which must be the
+          # user's shell.
+          order = 100000;
+          control = "required";
+          modulePath = "${config.security.pam.package}/lib/security/pam_selinux.so";
+        };
+      };
     };
   };
 }
