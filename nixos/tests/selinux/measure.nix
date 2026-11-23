@@ -59,10 +59,18 @@
     assert "labelled" in journal, journal
     analyze_first = machine.succeed("systemd-analyze").strip()
     assert machine.succeed("getenforce").strip() == "Enforcing"
-    unlabelled = machine.succeed(
-        "find /nix/store -xdev -context '*:unlabeled_t:*' | head -5"
-    ).strip()
-    assert unlabelled == "", unlabelled
+    machine.succeed(
+        "getfattr -R -h --absolute-names -n security.selinux /nix/store"
+        " 2>/dev/null | grep '^security.selinux=' > /tmp/labels"
+    )
+    print(machine.succeed("sort /tmp/labels | uniq -c | sort -rn | head -40"))
+    unlabelled = int(machine.succeed("grep -c -e unlabeled_t -e default_t /tmp/labels || true"))
+    assert unlabelled == 0, unlabelled
+    conflicts = int(machine.succeed(
+        "journalctl -b --no-pager | grep -c 'conflicting specifications' || true"
+    ))
+    denials = machine.succeed("journalctl -b --no-pager | grep 'avc:  denied' || true")
+    print(denials)
 
     machine.reboot()
     machine.wait_for_unit("multi-user.target")
@@ -73,6 +81,7 @@
     print(f"MEASURE store paths: {paths}")
     print(f"MEASURE store files: {files}")
     print(f"MEASURE store size: {size}")
+    print(f"MEASURE hard link pairs with two different rules: {conflicts}")
     print(f"MEASURE first boot labelling pass: {first:.1f} s")
     print(f"MEASURE first boot: {analyze_first}")
     print(f"MEASURE unchanged boot labelling pass: {second:.1f} s")

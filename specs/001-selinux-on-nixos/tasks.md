@@ -91,7 +91,7 @@
 ## Phase 7: Hardening (M4, outline)
 
 - [ ] T046 Ephemeral root filesystems, large closures, interrupted labelling, store maintenance during use: one test or documented limit for each edge case in the spec
-- [ ] T047 Tune labelling until SC-005 is met (known cost: any change to file context rules, even one outside the store, relabels the whole store at switch; the revision should cover store rules only)
+- [x] T047 Tune labelling until SC-005 is met (known cost: any change to file context rules, even one outside the store, relabels the whole store at switch; the revision should cover store rules only)
 
 ## Phase 8: User Story 5 - Upstream package (Priority: P2) (M5, outline)
 

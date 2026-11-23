@@ -130,7 +130,8 @@ Measured so far, minimal closure of about 590 store paths: the first-boot labell
 ## Known limits and open questions
 
 - **Not yet tried on a real machine**, on an ephemeral root, or with a large desktop closure. The first-boot pass scales with the number of files in the store.
-- **Any change to the generic rules relabels the whole store** at the next boot or switch. The revision should cover store rules only.
+- **A change to a generic rule that can apply to the store relabels the whole store** at the next boot or switch. Rules for paths outside the store do not.
+- **Hard links inside one store path** can join two names whose rules give different types, for example a file under `lib/` that is also linked under `share/`. The inode gets one of the two generic types and `setfiles` prints a warning. 144 such pairs appear in a desktop closure; none involves an exact rule.
 - **The whole store is labelled, not only the system closure.** This is simpler and covers user profiles, at the cost of a longer first pass.
 - **Paths built at run time carry the generic store type** until the next labelling run. Unconfined users can run them; a confined domain cannot.
 - **Confined builds are opt-in** and do not yet distinguish builders from hooks and the remote-build `ssh` client. A build may write any store file that still has the generic type, where file permissions allow it.

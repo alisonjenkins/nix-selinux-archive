@@ -20,6 +20,7 @@ saved_args=("$@")
 policy=
 spec=
 rev=
+mutable_rev=
 exact_rev=
 exact_file=
 remounted=
@@ -32,6 +33,7 @@ while [ $# -gt 0 ]; do
     --policy) policy=$2; shift 2 ;;
     --spec) spec=$2; shift 2 ;;
     --rev) rev=$2; shift 2 ;;
+    --mutable-rev) mutable_rev=$2; shift 2 ;;
     --exact-rev) exact_rev=$2; shift 2 ;;
     --exact) exact+=("$2"); shift 2 ;;
     --exact-file) exact_file=$2; shift 2 ;;
@@ -41,6 +43,8 @@ while [ $# -gt 0 ]; do
     *) echo "unknown argument: $1" >&2; exit 64 ;;
   esac
 done
+
+: "${mutable_rev:=$rev}"
 
 log() { echo "selinux-setup: $*"; }
 
@@ -100,7 +104,7 @@ done
 # labelling rules changed since the last one. This runs after activation,
 # so it also corrects what inheritance alone got wrong.
 if [ -n "$relabel_mutable" ] \
-  && [ "$(cat "$stateDir/relabelled" 2>/dev/null || true)" != "$rev" ]; then
+  && [ "$(cat "$stateDir/relabelled" 2>/dev/null || true)" != "$mutable_rev" ]; then
   existing=()
   for path in "${relabel[@]}"; do
     if [ -e "$path" ]; then existing+=("$path"); fi
@@ -110,7 +114,7 @@ if [ -n "$relabel_mutable" ] \
     setfiles -F "$spec" "${existing[@]}"
   fi
   mkdir -p "$stateDir"
-  echo "$rev" > "$stateDir/relabelled.tmp"
+  echo "$mutable_rev" > "$stateDir/relabelled.tmp"
   mv "$stateDir/relabelled.tmp" "$stateDir/relabelled"
 fi
 
