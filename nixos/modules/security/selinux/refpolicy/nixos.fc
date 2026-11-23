@@ -23,3 +23,6 @@
 /run/wrappers(/.*)?	gen_context(system_u:object_r:bin_t,s0)
 /run/current-system	-l	gen_context(system_u:object_r:nix_store_t,s0)
 /run/booted-system	-l	gen_context(system_u:object_r:nix_store_t,s0)
+
+# The login record database of pam_lastlog2.
+/var/lib/lastlog(/.*)?	gen_context(system_u:object_r:lastlog_t,s0)

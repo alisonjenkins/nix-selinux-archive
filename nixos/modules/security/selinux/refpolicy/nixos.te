@@ -374,3 +374,18 @@ gen_require(`
 	type local_login_t;
 ')
 corecmd_exec_bin(local_login_t)
+
+# pam_lastlog2 keeps login records in an SQLite database under
+# /var/lib/lastlog, which creates and removes journal files next to it.
+gen_require(`
+	type lastlog_t;
+	type systemd_logind_t;
+')
+files_search_var_lib({ local_login_t sshd_t })
+manage_dirs_pattern({ local_login_t sshd_t }, lastlog_t, lastlog_t)
+manage_files_pattern({ local_login_t sshd_t }, lastlog_t, lastlog_t)
+
+# pam_systemd registers the session with logind over its varlink socket.
+allow local_login_t init_runtime_t:sock_file write_sock_file_perms;
+allow local_login_t systemd_logind_t:unix_stream_socket connectto;
+fs_getattr_xattr_fs(local_login_t)
