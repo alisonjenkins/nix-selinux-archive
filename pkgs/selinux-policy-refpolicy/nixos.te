@@ -147,6 +147,12 @@ optional_policy(`
 	')
 
 	allow sshd_t systemd_logind_t:unix_stream_socket connectto;
+# pam_systemd registers the session with logind and passes a pidfd. To
+# use one, systemd first asks what filesystem it is on; pidfs has no type
+# of its own in the policy. Without this the session is not registered,
+# and the denial is not logged.
+fs_getattr_xattr_fs(sshd_t)
+kernel_getattr_proc(sshd_t)
 ')
 
 # login and agetty carry generic types and run in the generic service

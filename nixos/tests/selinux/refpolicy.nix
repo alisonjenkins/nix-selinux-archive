@@ -89,6 +89,11 @@
         ).strip()
         assert session == "unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023", session
 
+    with subtest("the SSH session was registered with logind"):
+        failures = machine.succeed("journalctl -b --no-pager | grep 'pam_systemd.*Failed' || true").strip()
+        if strict:
+            assert failures == "", failures
+
     with subtest("console login starts in the mapped context"):
         # In permissive mode the kernel prints every denial on the console,
         # which scrolls the login prompt away.
