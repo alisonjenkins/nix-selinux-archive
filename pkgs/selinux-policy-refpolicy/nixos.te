@@ -155,9 +155,16 @@ optional_policy(`
 	allow sshd_t systemd_logind_t:unix_stream_socket connectto;
 ')
 
+# login and agetty carry generic types and run in the generic service
+# domain; logind inspects the process behind each session.
+allow systemd_logind_t initrc_t:dir list_dir_perms;
+allow systemd_logind_t initrc_t:file read_file_perms;
+allow systemd_logind_t initrc_t:lnk_file read_lnk_file_perms;
+
 # The helper that creates /run/user/<uid> looks the user up.
 allow systemd_user_runtime_dir_t systemd_userdbd_runtime_t:sock_file write_sock_file_perms;
 allow systemd_user_runtime_dir_t init_t:unix_stream_socket connectto;
+files_list_tmp(systemd_user_runtime_dir_t)
 optional_policy(`
 	nscd_use(systemd_user_runtime_dir_t)
 ')
