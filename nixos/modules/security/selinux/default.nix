@@ -105,6 +105,7 @@ in
         "/var"
         "/root"
         "/home"
+        "/nix/var"
       ];
       description = ''
         Mutable paths whose labels are restored when the policy changes.

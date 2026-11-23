@@ -117,10 +117,11 @@ in
 
     fhsLabelledPackages = lib.mkOption {
       type = lib.types.listOf lib.types.package;
-      default = lib.optional (cfg.type == "refpolicy") config.systemd.package;
-      defaultText = lib.literalExpression ''
-        lib.optional (config.security.selinux.type == "refpolicy") config.systemd.package
-      '';
+      default = lib.optionals (cfg.type == "refpolicy") (
+        [ config.systemd.package ]
+        ++ lib.optional config.services.dbus.enable config.services.dbus.dbusPackage
+      );
+      defaultText = lib.literalMD "systemd and D-Bus with the `refpolicy` policy type, otherwise empty";
       description = ''
         Packages whose programs get the types the reference policy gives
         the same programs at their usual locations under {file}`/usr`.
