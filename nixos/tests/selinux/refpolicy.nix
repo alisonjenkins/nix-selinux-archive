@@ -212,6 +212,13 @@
         output = machine.succeed("journalctl -b -u demo.service --no-pager -o cat")
         print(output)
         print(machine.succeed("journalctl -b --no-pager | grep 'avc:  denied' | grep demo_t || true"))
+        # The message bus enforces the policy too: the demo domain has no
+        # rule to send messages to systemd.
+        bus = machine.succeed(
+            "sesearch -A -s demo_t -t init_t -c dbus -p send_msg | grep -v ':False$' || true"
+        )
+        assert "allow" not in bus, bus
+        machine.succeed("ldd $(readlink -f /proc/$(pgrep -x dbus-broker)/exe) | grep libselinux")
         if strict:
             assert "context=system_u:system_r:demo_t:s0" in output, output
             assert "hostname=readable" in output, output

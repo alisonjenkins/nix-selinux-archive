@@ -58,6 +58,24 @@ in
     # of inheriting the context of the login program. OpenSSH does this
     # itself when built with SELinux support; console logins use
     # pam_selinux.
+    # The message bus asks the policy whether a sender may talk to a
+    # receiver and whether a service may own a name, when it is built to.
+    services.dbus.brokerPackage = lib.mkIf cfg.dbusMediation (
+      lib.mkDefault (
+        pkgs.dbus-broker.overrideAttrs (old: {
+          mesonFlags = old.mesonFlags ++ [
+            "-D=selinux=true"
+            "-D=audit=true"
+          ];
+          buildInputs = old.buildInputs ++ [
+            pkgs.libselinux
+            pkgs.audit
+            pkgs.libcap_ng
+          ];
+        })
+      )
+    );
+
     programs.ssh.package = lib.mkIf cfg.loginContexts (
       lib.mkDefault (pkgs.openssh.override { withSelinux = true; })
     );

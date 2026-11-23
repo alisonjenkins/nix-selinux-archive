@@ -151,4 +151,3 @@ Options 2 and 3 are covered by the `selinux-recovery` test. A `nixos-rebuild swi
 
 - Not compatible with `security.apparmor.enable` or `system.nixos-init.enable` in this version.
 - Not yet tried on a real machine.
-- D-Bus does not mediate messages by SELinux context.
