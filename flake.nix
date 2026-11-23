@@ -76,6 +76,10 @@
             import ./nixos/tests/selinux/refpolicy.nix { selinuxModule = self.nixosModules.selinux; }
           );
 
+          selinux-store-maintenance = pkgs.testers.runNixOSTest (
+            import ./nixos/tests/selinux/store-maintenance.nix { selinuxModule = self.nixosModules.selinux; }
+          );
+
           # Not a pass/fail test of the policy: prints what it denies.
           selinux-refpolicy-audit = pkgs.testers.runNixOSTest (
             import ./nixos/tests/selinux/refpolicy.nix {
