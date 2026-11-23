@@ -98,6 +98,17 @@ in
       '';
     };
 
+    dbusMediation = lib.mkOption {
+      type = lib.types.bool;
+      default = cfg.type == "refpolicy";
+      defaultText = lib.literalExpression ''config.security.selinux.type == "refpolicy"'';
+      description = ''
+        Build the D-Bus message broker with SELinux support, so that it
+        checks messages and name ownership against the policy. Applies
+        to the `broker` implementation of {option}`services.dbus`.
+      '';
+    };
+
     relabelPaths = lib.mkOption {
       type = lib.types.listOf lib.types.path;
       default = [
