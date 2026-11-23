@@ -47,6 +47,12 @@ optional_policy(`
 # their reference policy domains by exact store path is future work.
 allow init_t self:system { disable enable start stop };
 
+# Login programs (login, sshd) carry generic types too and run in the
+# generic service domain, so that domain starts user sessions and must
+# be able to change the SELinux user and role when it does.
+domain_subj_id_change_exemption(initrc_t)
+domain_role_change_exemption(initrc_t)
+
 # Seen at boot: PCRE just-in-time compilation in grep, and agetty.
 allow initrc_t self:process execmem;
 allow initrc_t self:capability2 checkpoint_restore;

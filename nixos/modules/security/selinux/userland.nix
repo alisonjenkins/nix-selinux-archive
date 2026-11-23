@@ -2,8 +2,8 @@
 #
 # nixpkgs builds these without it by default, so enabling SELinux rebuilds
 # them. Only the packages needed to load a policy and inspect labels are
-# switched here. Login-related packages (PAM, OpenSSH, D-Bus) follow with the
-# enforcing milestone.
+# switched by default. PAM and OpenSSH are switched when
+# `security.selinux.loginContexts` is on.
 {
   config,
   lib,
@@ -20,6 +20,14 @@ let
     selinuxSupport = true;
     inherit (pkgs) libselinux libsepol;
   };
+
+  # nixpkgs disables SELinux in PAM outright, so flip the build flag.
+  selinuxPam = pkgs.linux-pam.overrideAttrs (old: {
+    mesonFlags = map (
+      flag: if flag == "-Dselinux=disabled" then "-Dselinux=enabled" else flag
+    ) old.mesonFlags;
+    buildInputs = old.buildInputs ++ [ pkgs.libselinux ];
+  });
 
   # Not in nixpkgs yet. The module must work without an overlay, because
   # NixOS tests and some systems use a read-only package set.
@@ -45,5 +53,21 @@ in
     ];
 
     security.auditd.enable = lib.mkIf cfg.developmentTools (lib.mkDefault true);
+
+    # Sessions start in the context the policy maps the user to, instead
+    # of inheriting the context of the login program. OpenSSH does this
+    # itself when built with SELinux support; console logins use
+    # pam_selinux.
+    programs.ssh.package = lib.mkIf cfg.loginContexts (
+      lib.mkDefault (pkgs.openssh.override { withSelinux = true; })
+    );
+    security.pam.package = lib.mkIf cfg.loginContexts (lib.mkDefault selinuxPam);
+    security.pam.services.login.rules.session.selinux = lib.mkIf cfg.loginContexts {
+      # After every other session module: it sets the context of the next
+      # program the login process executes, which must be the user's shell.
+      order = 100000;
+      control = "required";
+      modulePath = "${config.security.pam.package}/lib/security/pam_selinux.so";
+    };
   };
 }

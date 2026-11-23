@@ -7,6 +7,8 @@
   name ? "refpolicy",
   policyVersion ? 33,
   extraFileContexts ? "",
+  # Contents of the seusers file; null keeps the reference policy's own.
+  seusers ? null,
 }:
 (selinux-refpolicy.override { inherit policyVersion; }).overrideAttrs (old: {
   pname = "selinux-policy-${name}";
@@ -38,6 +40,9 @@
     mv $out/etc/selinux/${name}/* $out/
     rm -r $out/etc
     cat "$extraFileContextsPath" >> $out/contexts/files/file_contexts
+    ${lib.optionalString (seusers != null) ''
+      cat ${builtins.toFile "seusers" seusers} > $out/seusers
+    ''}
     ${lib.getExe' policycoreutils "setfiles"} -c $out/policy/policy.${toString policyVersion} \
       $out/contexts/files/file_contexts
   '';

@@ -137,6 +137,9 @@ in
             name = cfg.type;
             policyVersion = if cfg.policyVersion != null then cfg.policyVersion else 33;
             extraFileContexts = cfg.fileContexts + exactRules;
+            seusers = lib.concatStrings (
+              lib.mapAttrsToList (login: m: "${login}:${m.user}:${m.range}\n") cfg.loginMappings
+            );
           }
         else
           pkgs.callPackage ../../../../pkgs/selinux-policy-minimal {
