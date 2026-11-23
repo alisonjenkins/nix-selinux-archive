@@ -15,7 +15,11 @@ A prototype of SELinux support for NixOS, developed with the aim of contributing
 }
 ```
 
-Reboot, then run `nixos-selinux status`. The system starts permissive (logging only). The [manual chapter](nixos/modules/security/selinux/selinux.md) is short and covers the rest: confining a service, reading denials, recovery.
+Reboot, then run `nixos-selinux status`. The system starts permissive (logging only).
+
+**If an enforcing system will not boot:** in the boot loader, pick the previous generation, or add `enforcing=0` to the kernel command line.
+
+The [manual chapter](nixos/modules/security/selinux/selinux.md) is short and covers the rest: confining a service, reading denials, recovery.
 
 ## Approach
 

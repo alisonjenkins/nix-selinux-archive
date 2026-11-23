@@ -29,6 +29,20 @@ When normal use logs no denials, turn enforcement on:
 }
 ```
 
+## If it goes wrong {#module-security-selinux-recovery}
+
+Read this before enforcing. If an enforcing system does not boot, or you cannot log in, pick one from the boot loader menu:
+
+| Try | How | Effect |
+|---|---|---|
+| 1. Previous generation | Select it in the menu. | The system as it was before the change. |
+| 2. Permissive, once | Edit the entry and add `enforcing=0` to the kernel command line. | Policy loaded, nothing blocked, denials logged. |
+| 3. SELinux off, once | Edit the entry and remove `selinux` from `lsm=`. | No SELinux at all. The next normal boot relabels by itself. |
+
+Then fix the configuration (`nixos-selinux denials` shows what was blocked) or set `mode = "permissive"`, and switch.
+
+An enforcing system refuses to boot if its policy cannot be loaded, instead of running unprotected. A switch to a policy the running kernel cannot load is refused before anything changes.
+
 ## Words you need {#module-security-selinux-glossary}
 
 - **Label**: every file and process has one. Rules are written in terms of labels, not paths or users.
@@ -100,16 +114,6 @@ Each line is one kind of denial: which domain, on what, how often.
 - **"Permission denied" but nothing logged**: the policy hides some expected denials. Build once with `security.selinux.logAllDenials = true`.
 
 `security.selinux.developmentTools = true` installs `sesearch`, `audit2allow` and friends.
-
-## If the system does not boot {#module-security-selinux-recovery}
-
-In order of preference, from the boot loader menu:
-
-1. **Boot the previous generation.**
-2. **Boot permissive once**: add `enforcing=0` to the kernel command line.
-3. **Boot without SELinux**: remove `selinux` from the `lsm=` kernel parameter. The next normal boot relabels by itself.
-
-An enforcing system refuses to boot if its policy cannot be loaded, instead of running unprotected. A switch to a policy the running kernel cannot load is refused before anything changes.
 
 ## How it fits NixOS {#module-security-selinux-store-labels}
 
