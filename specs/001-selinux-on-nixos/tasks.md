@@ -75,7 +75,7 @@
 - [x] T037 [US2] Label at switch: run the labeller in a private mount namespace before the new generation's services start, and load the new policy
 - [ ] T038 [US2] Refuse a switch whose policy fails to load in enforcing mode
 - [x] T039 [US2] Label and allow the privileged wrappers in `/run/wrappers` (labelled by `restorecon` after the wrappers service; wrappers keep a generic type and their targets get exact-path types, for example `unix_chkpwd`)
-- [ ] T040 [US2] Document recovery when an enforcing system fails to boot
+- [x] T040 [US2] Document recovery when an enforcing system fails to boot (`docs/manual.md`)
 
 ## Phase 5: User Story 4 - Roll back and upgrade safely (Priority: P3) (M2, outline)
 
@@ -96,7 +96,7 @@
 ## Phase 8: User Story 5 - Upstream package (Priority: P2) (M5, outline)
 
 - [x] T048 [US5] Finish `docs/design.md` with the threat model and the answers to each recorded objection
-- [ ] T049 [US5] Write the user manual chapter in `docs/manual.md`
+- [x] T049 [US5] Write the user manual chapter in `docs/manual.md` (`docs/manual.md`)
 - [ ] T050 [US5] Split the work into an ordered patch series against nixpkgs, each default-off with its test, starting with the smallest (kernel support and `secilc`)
 - [ ] T051 [US5] Have someone uninvolved reproduce M1 and M2 from the documentation (SC-008)
 - [ ] T052 [US5] With Alison's go-ahead, open the upstream discussion and the first pull request
