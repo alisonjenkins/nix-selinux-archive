@@ -20,7 +20,9 @@ let
       program = builtins.match "[@!+:-]*(/nix/store/[^ ]+).*" command;
     in
     if unit != null && (unit.enable or true) && lib.isString command && program != null then
-      builtins.head program
+      # match drops the string's context; the policy build needs it to
+      # see the file.
+      lib.addContextFrom command (builtins.head program)
     else
       null;
 in
