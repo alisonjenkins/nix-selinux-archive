@@ -85,6 +85,10 @@
             import ./nixos/tests/selinux/recovery.nix { selinuxModule = self.nixosModules.selinux; }
           );
 
+          selinux-ephemeral-root = pkgs.testers.runNixOSTest (
+            import ./nixos/tests/selinux/ephemeral-root.nix { selinuxModule = self.nixosModules.selinux; }
+          );
+
           selinux-refpolicy = pkgs.testers.runNixOSTest (
             import ./nixos/tests/selinux/refpolicy.nix { selinuxModule = self.nixosModules.selinux; }
           );
