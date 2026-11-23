@@ -342,3 +342,27 @@ corenet_tcp_connect_all_ports(nix_build_t)
 sysnet_read_config(nix_build_t)
 miscfiles_read_generic_certs(nix_build_t)
 miscfiles_read_localization(nix_build_t)
+
+########################################
+# Network setup and console login
+#
+
+gen_require(`
+	type dhcpc_t;
+	type getty_t;
+	type net_conf_t;
+')
+
+# NixOS manages /etc/resolv.conf with resolvconf, whose state is under
+# /run/resolvconf. Its service creates both, and the DHCP client's hook
+# updates them and restarts the name service cache.
+sysnet_runtime_filetrans_config(initrc_t, dir, "resolvconf")
+sysnet_etc_filetrans_config(initrc_t, "resolv.conf")
+manage_dirs_pattern(dhcpc_t, net_conf_t, net_conf_t)
+manage_files_pattern(dhcpc_t, net_conf_t, net_conf_t)
+init_start_generic_units(dhcpc_t)
+init_get_generic_units_status(dhcpc_t)
+
+# systemd passes credentials to the login prompt in a directory on a
+# tmpfs under /run/credentials.
+fs_list_tmpfs(getty_t)
