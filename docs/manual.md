@@ -88,7 +88,26 @@ With `minimal`, add CIL fragments. A fragment that does not compile fails the sy
 }
 ```
 
-With `refpolicy`, set booleans and tunables with `security.selinux.booleans`. Local modules are not supported with `refpolicy` yet.
+With `refpolicy`, write the module in the reference policy's language and name the service's program by exact path:
+
+```nix
+{
+  security.selinux = {
+    modules.myservice.te = ''
+      type myservice_t;
+      type myservice_exec_t;
+      init_daemon_domain(myservice_t, myservice_exec_t)
+      logging_send_syslog_msg(myservice_t)
+    '';
+    entrypoints.myservice = {
+      path = "''${pkgs.myservice}/bin/myserviced";
+      type = "myservice_exec_t";
+    };
+  };
+}
+```
+
+systemd then starts the service in `myservice_t`, where it may do only what the module allows. Booleans and tunables are set with `security.selinux.booleans`.
 
 The policy is part of the system closure. There is no mutable policy store: `semodule` and `setsebool -P` have nothing to write to. A change to the policy is a change to the configuration, and it switches and rolls back with the system generation.
 

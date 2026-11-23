@@ -89,25 +89,45 @@ in
     modules = lib.mkOption {
       type = lib.types.attrsOf (
         lib.types.submodule {
-          options.cil = lib.mkOption {
-            type = lib.types.lines;
-            default = "";
-            description = "Policy rules in CIL.";
+          options = {
+            cil = lib.mkOption {
+              type = lib.types.lines;
+              default = "";
+              description = "Policy rules in CIL, for the `minimal` policy type.";
+            };
+            te = lib.mkOption {
+              type = lib.types.lines;
+              default = "";
+              description = ''
+                Policy rules in the reference policy's language, for the
+                `refpolicy` policy type: declarations, allow rules and
+                calls of the reference policy's interfaces. The
+                `policy_module` line is added.
+              '';
+            };
+            "if" = lib.mkOption {
+              type = lib.types.lines;
+              default = "";
+              description = "Interfaces this module offers to other modules, for the `refpolicy` policy type.";
+            };
           };
         }
       );
       default = { };
       example = lib.literalExpression ''
         {
-          myservice.cil = '''
-            (type myservice_t)
-            (roletype system_r myservice_t)
+          myservice.te = '''
+            type myservice_t;
+            type myservice_exec_t;
+            init_daemon_domain(myservice_t, myservice_exec_t)
           ''';
         }
       '';
       description = ''
         Policy fragments compiled into the system policy. A fragment that
         does not compile fails the system build, and the error names it.
+        File context rules go in {option}`security.selinux.fileContexts`
+        and {option}`security.selinux.entrypoints`.
       '';
     };
 
@@ -232,9 +252,10 @@ in
 
       policy = lib.mkDefault (
         if cfg.type == "refpolicy" then
-          assert lib.assertMsg (cfg.modules == { }) ''
-            security.selinux.modules is not supported with the refpolicy
-            policy type yet.
+          assert lib.assertMsg (lib.all (m: m.cil == "") (lib.attrValues cfg.modules)) ''
+            security.selinux.modules.<name>.cil is for the minimal policy
+            type. With refpolicy, write the module in
+            security.selinux.modules.<name>.te.
           '';
           pkgs.callPackage ../../../../pkgs/selinux-policy-refpolicy {
             name = cfg.type;
@@ -242,6 +263,7 @@ in
             extraFileContexts = cfg.fileContexts;
             inherit exactRules;
             fhsPackages = cfg.fhsLabelledPackages;
+            localModules = lib.mapAttrs (_: m: { inherit (m) te "if"; }) cfg.modules;
             inherit (cfg) booleans;
             dontaudit = !cfg.logAllDenials;
             seusers = lib.concatStrings (
@@ -249,6 +271,11 @@ in
             );
           }
         else
+          assert lib.assertMsg (lib.all (m: m.te == "" && m."if" == "") (lib.attrValues cfg.modules)) ''
+            security.selinux.modules.<name>.te and .if are for the
+            refpolicy policy type. With the minimal policy, write the
+            module in security.selinux.modules.<name>.cil.
+          '';
           pkgs.callPackage ../../../../pkgs/selinux-policy-minimal {
             inherit secilc;
             name = cfg.type;

@@ -58,6 +58,7 @@ The activation script loads the new generation's policy, applies its mode, label
 `security.selinux.type = "refpolicy"` builds the nixpkgs reference policy source as one monolithic binary policy (MCS, systemd support, unknown permissions allowed), with:
 
 - `nixos.te` and `nixos.fc`: the store types, generic labels for store content, and the rules NixOS needs that the reference policy does not have.
+- `security.selinux.modules.<name>.te`: the system's own modules, compiled in.
 - `security.selinux.booleans`: boolean and tunable values, built in.
 - `security.selinux.loginMappings`: the `seusers` file.
 
@@ -143,7 +144,6 @@ The first boot of the desktop closure took 17.6 s in total and an unchanged boot
 - **The whole store is labelled, not only the system closure.** This is simpler and covers user profiles, at the cost of a longer first pass.
 - **Paths built at run time carry the generic store type** until the next labelling run. Unconfined users can run them; a confined domain cannot.
 - **Confined builds are opt-in** and do not yet distinguish builders from hooks and the remote-build `ssh` client. A build may write any store file that still has the generic type, where file permissions allow it.
-- **CIL modules (`security.selinux.modules`) work with `minimal` only.** With `refpolicy`, local policy has to go into the NixOS module for now.
 - **D-Bus is not built with SELinux support**, so it does not mediate messages by context.
 - **Password logins over SSH and `sudo` role changes are not tested.**
 - **`system.nixos-init.enable` is not supported**: the policy is loaded by a unit ordered before the scripted activation unit in the initrd.
