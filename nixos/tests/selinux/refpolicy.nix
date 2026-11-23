@@ -1,11 +1,18 @@
-# The reference policy with the NixOS module, in enforcing mode: the
-# system boots without denials, and logins and Nix builds work.
-{ selinuxModule }:
+# The reference policy with the NixOS module: the system boots without
+# denials, and logins and Nix builds work.
+#
+# With `enforcing = false` the same script runs in permissive mode and
+# only prints the denials. That variant is a development tool: it shows
+# everything a policy change breaks in one run.
 {
-  name = "selinux-refpolicy";
+  selinuxModule,
+  enforcing ? true,
+}:
+{
+  name = if enforcing then "selinux-refpolicy" else "selinux-refpolicy-audit";
 
   nodes.machine =
-    { ... }:
+    { pkgs, ... }:
     {
       imports = [
         selinuxModule
@@ -15,10 +22,11 @@
       security.selinux = {
         enable = true;
         type = "refpolicy";
-        mode = "enforcing";
+        mode = if enforcing then "enforcing" else "permissive";
       };
 
       services.openssh.enable = true;
+      environment.systemPackages = [ pkgs.setools ];
       users.users.alice = {
         isNormalUser = true;
         password = "foobar";
@@ -27,6 +35,8 @@
     };
 
   testScript = ''
+    strict = ${if enforcing then "True" else "False"}
+
     def denials():
         summary = machine.succeed(
             "journalctl -b -k --no-pager -o cat | grep 'avc:  denied'"
@@ -34,7 +44,7 @@
             " | sort | uniq -c | sort -rn | head -150 || true"
         ).strip()
         print(summary)
-        return summary
+        return summary if strict else ""
 
     def label(path):
         return machine.succeed(f"stat -c %C $(readlink -f {path})").strip()
@@ -43,7 +53,7 @@
     machine.wait_for_unit("multi-user.target")
 
     with subtest("the reference policy is loaded and enforcing"):
-        assert machine.succeed("getenforce").strip() == "Enforcing"
+        assert machine.succeed("getenforce").strip() == ("Enforcing" if strict else "Permissive")
         status = machine.succeed("sestatus")
         print(status)
         assert "refpolicy" in status, status
@@ -70,21 +80,41 @@
             "ssh-keygen -q -t ed25519 -N ''' -f /root/.ssh/id_ed25519",
             "cp /root/.ssh/id_ed25519.pub /root/.ssh/authorized_keys",
         )
+        daemon = machine.succeed("ps -o label= -p $(systemctl show -P MainPID sshd.service)").strip()
+        assert daemon == "system_u:system_r:sshd_t:s0", daemon
         session = machine.succeed(
             "ssh -o StrictHostKeyChecking=no -o BatchMode=yes root@localhost id -Z"
         ).strip()
         assert session == "unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023", session
 
     with subtest("console login starts in the mapped context"):
-        machine.wait_until_tty_matches("1", "login: ")
-        machine.send_chars("alice\n")
-        machine.wait_until_tty_matches("1", "Password: ")
-        machine.send_chars("foobar\n")
-        machine.wait_until_succeeds("pgrep -u alice bash")
-        machine.send_chars("id -Z > /tmp/console-context\n")
-        machine.wait_for_file("/tmp/console-context")
-        console = machine.succeed("cat /tmp/console-context").strip()
-        assert console == "unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023", console
+        # In permissive mode the kernel prints every denial on the console,
+        # which scrolls the login prompt away.
+        if strict:
+            machine.wait_until_tty_matches("1", "login: ")
+            machine.send_chars("alice\n")
+            machine.wait_until_tty_matches("1", "Password: ")
+            machine.send_chars("foobar\n")
+            machine.wait_until_succeeds("pgrep -u alice bash")
+            machine.send_chars("id -Z > /tmp/console-context\n")
+            machine.wait_for_file("/tmp/console-context")
+            console = machine.succeed("cat /tmp/console-context").strip()
+            assert console == "unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023", console
+
+    with subtest("confined services run in their domains"):
+        nscd = machine.succeed("ps -o label= -p $(systemctl show -P MainPID nscd.service)").strip()
+        assert nscd == "system_u:system_r:nscd_t:s0", nscd
+        # What confinement buys: unlike an unconfined service, sshd may
+        # not read the shadow file or load a kernel module.
+        for rule in [
+            "-s sshd_t -t shadow_t -c file -p read",
+            "-s sshd_t -c system -p module_load",
+            "-s nscd_t -t shadow_t -c file -p read",
+        ]:
+            # Rules under a boolean that is off are listed with ":False".
+            found = machine.succeed(f"sesearch -A {rule} | grep -v ':False$' || true").strip()
+            assert found == "", found
+        assert machine.succeed("sesearch -A -s initrc_t -t shadow_t -c file -p read").strip() != ""
 
     with subtest("the Nix daemon builds a derivation"):
         machine.succeed(
@@ -101,7 +131,7 @@
     with subtest("the system reboots cleanly into enforcing mode"):
         machine.reboot()
         machine.wait_for_unit("multi-user.target")
-        assert machine.succeed("getenforce").strip() == "Enforcing"
+        assert machine.succeed("getenforce").strip() == ("Enforcing" if strict else "Permissive")
         failed = machine.succeed("systemctl --failed --no-legend").strip()
         assert failed == "", failed
         assert denials() == ""

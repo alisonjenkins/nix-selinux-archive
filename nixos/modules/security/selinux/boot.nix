@@ -130,6 +130,13 @@ in
       };
     };
 
+    # The setuid wrappers are created at boot on their own tmpfs, where
+    # new files get the filesystem's default type. Give them their
+    # proper labels as soon as they exist.
+    systemd.services.suid-sgid-wrappers.serviceConfig.ExecStartPost = [
+      "-${lib.getExe' pkgs.policycoreutils "restorecon"} -RF ${dirOf config.security.wrapperDir}"
+    ];
+
     # On switch: load the new generation's policy, apply its mode, and label
     # store paths that arrived with it, before any of its services start.
     system.activationScripts.selinux = {

@@ -76,6 +76,14 @@
             import ./nixos/tests/selinux/refpolicy.nix { selinuxModule = self.nixosModules.selinux; }
           );
 
+          # Not a pass/fail test of the policy: prints what it denies.
+          selinux-refpolicy-audit = pkgs.testers.runNixOSTest (
+            import ./nixos/tests/selinux/refpolicy.nix {
+              selinuxModule = self.nixosModules.selinux;
+              enforcing = false;
+            }
+          );
+
           formatting = pkgs.runCommand "check-formatting" { nativeBuildInputs = [ pkgs.nixfmt ]; } ''
             find ${nixFiles} -name '*.nix' -print0 | xargs -0 nixfmt --check
             touch $out
