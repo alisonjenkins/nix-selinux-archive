@@ -2,7 +2,7 @@
 # system boots without denials, and logins and Nix builds work.
 { selinuxModule }:
 {
-  name = "selinux-refpolicy-permissive";
+  name = "selinux-refpolicy";
 
   nodes.machine =
     { ... }:

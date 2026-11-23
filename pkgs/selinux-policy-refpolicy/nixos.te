@@ -3,6 +3,7 @@ policy_module(nixos)
 gen_require(`
 	attribute domain;
 	type initrc_t;
+	type init_t;
 ')
 
 ########################################
@@ -39,6 +40,12 @@ allow domain domain:process2 nosuid_transition;
 optional_policy(`
 	unconfined_domain(initrc_t)
 ')
+
+# systemd's helper daemons live under lib/systemd and carry a generic
+# library type, so they stay in the init domain instead of entering
+# their own. logind starts session scopes from there. Giving the helpers
+# their reference policy domains by exact store path is future work.
+allow init_t self:system { disable enable start stop };
 
 # Seen at boot: PCRE just-in-time compilation in grep, and agetty.
 allow initrc_t self:process execmem;
