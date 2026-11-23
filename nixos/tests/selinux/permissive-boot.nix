@@ -10,14 +10,16 @@
         ./ext4-nix.nix
       ];
 
-      security.selinux.enable = true;
-      security.selinux.type = "minimal";
+      security.selinux = {
+        enable = true;
+        type = "minimal";
 
-      # A type no domain is allowed to touch, to provoke a denial.
-      security.selinux.modules.test.cil = ''
-        (type test_secret_t)
-        (roletype object_r test_secret_t)
-      '';
+        # A type no domain is allowed to touch, to provoke a denial.
+        modules.test.cil = ''
+          (type test_secret_t)
+          (roletype object_r test_secret_t)
+        '';
+      };
 
       environment.systemPackages = [ pkgs.attr ];
       virtualisation.memorySize = 2048;

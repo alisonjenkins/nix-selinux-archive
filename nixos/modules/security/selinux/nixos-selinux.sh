@@ -44,8 +44,12 @@ denial_groups() {
             else if ($i == "permissive=1") { mode = "logged" }
           }
           if (source == "" || target == "" || class == "") next
-          key = source "|" target "|" class "|" comm "|" mode
+          key = source "|" target "|" class "|" mode
           count[key]++
+          if (!((key, "comm", comm) in seen)) {
+            seen[key, "comm", comm] = 1
+            comms[key] = comms[key] (comms[key] == "" ? "" : ",") comm
+          }
           n = split(perms, p, " ")
           for (j = 1; j <= n; j++) if (!((key, p[j]) in seen)) {
             seen[key, p[j]] = 1
@@ -55,7 +59,7 @@ denial_groups() {
         END {
           for (key in count) {
             split(key, k, "|")
-            print count[key] "|" k[1] "|" k[2] "|" k[3] "|" all[key] "|" k[4] "|" k[5]
+            print count[key] "|" k[1] "|" k[2] "|" k[3] "|" all[key] "|" comms[key] "|" k[4]
           }
         }' \
     | sort -t'|' -k2,2 -k1,1nr
@@ -147,7 +151,7 @@ cmd_denials() {
       echo "allow $source $target:$class { $perms };"
     done <<< "$groups" | awk '!seen[$0]++ || $0 == ""'
   else
-    printf '%5s  %-24s %-24s %-14s %-9s %-14s %s\n' Count Domain "Target type" Class Result Program Permissions
+    printf '%5s  %-24s %-24s %-14s %-9s %-14s %s\n' Times Domain "Target type" Class Result Programs Permissions
     while IFS='|' read -r count source target class perms comm mode; do
       printf '%5s  %-24s %-24s %-14s %-9s %-14s %s\n' "$count" "$source" "$target" "$class" "$mode" "$comm" "$perms"
     done <<< "$groups"
