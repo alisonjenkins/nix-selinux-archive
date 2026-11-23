@@ -12,6 +12,7 @@ in
     ./boot.nix
     ./policy.nix
     ./userland.nix
+    ./services.nix
   ];
 
   options.security.selinux = {
