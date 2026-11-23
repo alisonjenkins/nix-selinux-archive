@@ -60,10 +60,14 @@
       };
 
       services.openssh.enable = true;
-      environment.systemPackages = [ pkgs.setools ];
+      environment.systemPackages = [
+        pkgs.setools
+        pkgs.sshpass
+      ];
       users.users.alice = {
         isNormalUser = true;
         password = "foobar";
+        extraGroups = [ "wheel" ];
       };
       virtualisation.memorySize = 2048;
     };
@@ -121,6 +125,19 @@
         ).strip()
         assert session == "unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023", session
 
+    with subtest("SSH login with a password works"):
+        session = machine.succeed(
+            "sshpass -p foobar ssh -n -o StrictHostKeyChecking=no"
+            " -o PreferredAuthentications=password -o PubkeyAuthentication=no"
+            " alice@localhost id -Z"
+        ).strip()
+        assert session == "unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023", session
+        machine.fail(
+            "sshpass -p wrong ssh -n -o StrictHostKeyChecking=no"
+            " -o PreferredAuthentications=password -o PubkeyAuthentication=no"
+            " -o NumberOfPasswordPrompts=1 alice@localhost true"
+        )
+
     with subtest("the SSH session was registered with logind"):
         failures = machine.succeed("journalctl -b --no-pager | grep 'pam_systemd.*Failed' || true").strip()
         if strict:
@@ -139,6 +156,17 @@
             machine.wait_for_file("/tmp/console-context")
             console = machine.succeed("cat /tmp/console-context").strip()
             assert console == "unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023", console
+
+    with subtest("sudo and su work from the console session"):
+        if strict:
+            machine.send_chars("echo foobar | sudo -S id -u > /tmp/sudo-uid\n")
+            machine.wait_until_succeeds("grep -qx 0 /tmp/sudo-uid", timeout=60)
+            machine.send_chars("echo foobar | sudo -S id -Z > /tmp/sudo-context\n")
+            machine.wait_until_succeeds("test -s /tmp/sudo-context", timeout=60)
+            sudo = machine.succeed("cat /tmp/sudo-context").strip()
+            assert sudo == "unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023", sudo
+            machine.send_chars("sudo -n su -c 'id -u > /tmp/su-uid'\n")
+            machine.wait_until_succeeds("grep -qx 0 /tmp/su-uid", timeout=60)
 
     with subtest("confined services run in their domains"):
         def domain(unit):
