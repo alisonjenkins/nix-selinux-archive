@@ -134,7 +134,7 @@
             machine.send_chars("alice\n")
             machine.wait_until_tty_matches("1", "Password: ")
             machine.send_chars("foobar\n")
-            machine.wait_until_succeeds("pgrep -u alice bash")
+            machine.wait_until_succeeds("pgrep -u alice bash", timeout=60)
             machine.send_chars("id -Z > /tmp/console-context\n")
             machine.wait_for_file("/tmp/console-context")
             console = machine.succeed("cat /tmp/console-context").strip()

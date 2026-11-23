@@ -366,3 +366,11 @@ init_get_generic_units_status(dhcpc_t)
 # systemd passes credentials to the login prompt in a directory on a
 # tmpfs under /run/credentials.
 fs_list_tmpfs(getty_t)
+
+# PAM runs its password helper through the setuid wrapper in
+# /run/wrappers, which has the generic program type. The helper itself
+# has its own type and domain.
+gen_require(`
+	type local_login_t;
+')
+corecmd_exec_bin(local_login_t)
