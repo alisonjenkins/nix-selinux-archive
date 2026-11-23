@@ -130,16 +130,19 @@ in
       };
     };
 
-    # On switch: label store paths that arrived with the new generation and
-    # load its policy, before any of its services start.
+    # On switch: load the new generation's policy, apply its mode, and label
+    # store paths that arrived with it, before any of its services start.
     system.activationScripts.selinux = {
       deps = [ "etc" ];
       text = ''
         if [ "''${IN_NIXOS_SYSTEMD_STAGE1:-}" != true ] && [ -e /sys/fs/selinux/load ]; then
-          ${setup} --relabel-mutable
+          # Load the new policy first: labels that use its new types are
+          # only valid once the kernel knows them.
           if [ "$(tr -d '\0' < /proc/self/attr/current)" != kernel ]; then
             ${lib.getExe' pkgs.policycoreutils "load_policy"}
+            echo ${if cfg.mode == "enforcing" then "1" else "0"} > /sys/fs/selinux/enforce
           fi
+          ${setup} --relabel-mutable
         fi
       '';
     };

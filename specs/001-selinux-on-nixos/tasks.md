@@ -72,15 +72,15 @@
 - [ ] T034 [US2] Build refpolicy offline in `pkgs/selinux-policy-nixos/` (modular assembly, monolithic as fallback) with an unconfined-by-default module set
 - [ ] T035 [US2] Write the NixOS policy layer in `policy/nixos/`: store types, Nix daemon, activation, wrappers directory, path aliases for NixOS locations
 - [ ] T036 [US2] Enable SELinux in PAM, OpenSSH and D-Bus in `userland.nix`; add login mappings and PAM session entries
-- [ ] T037 [US2] Label at switch: run the labeller in a private mount namespace before the new generation's services start, and load the new policy
+- [x] T037 [US2] Label at switch: run the labeller in a private mount namespace before the new generation's services start, and load the new policy
 - [ ] T038 [US2] Refuse a switch whose policy fails to load in enforcing mode
 - [ ] T039 [US2] Label and allow the privileged wrappers in `/run/wrappers`
 - [ ] T040 [US2] Document recovery when an enforcing system fails to boot
 
 ## Phase 5: User Story 4 - Roll back and upgrade safely (Priority: P3) (M2, outline)
 
-- [ ] T041 [US4] `switch-rollback.nix`: two generations with different policies, switch forward, roll back, reboot into each, assert the active policy and sampled labels each time; include rollback to a generation without SELinux
-- [ ] T042 [US4] Fix whatever that test exposes in labelling state and policy reload
+- [x] T041 [US4] `switch-rollback.nix`: two generations with different policies, switch forward, roll back, reboot into each, assert the active policy and sampled labels each time; include rollback to a generation without SELinux (done as `switch-rollback.nix` using a specialisation and `switch-to-configuration test`; booting into each generation through the boot loader is not covered yet)
+- [x] T042 [US4] Fix whatever that test exposes in labelling state and policy reload
 
 ## Phase 6: User Story 3 - Confine a service declaratively (Priority: P3) (M3, outline)
 
@@ -91,7 +91,7 @@
 ## Phase 7: Hardening (M4, outline)
 
 - [ ] T046 Ephemeral root filesystems, large closures, interrupted labelling, store maintenance during use: one test or documented limit for each edge case in the spec
-- [ ] T047 Tune labelling until SC-005 is met
+- [ ] T047 Tune labelling until SC-005 is met (known cost: any change to file context rules, even one outside the store, relabels the whole store at switch; the revision should cover store rules only)
 
 ## Phase 8: User Story 5 - Upstream package (Priority: P2) (M5, outline)
 
