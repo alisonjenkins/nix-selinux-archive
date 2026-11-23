@@ -45,9 +45,9 @@ Three sources produce exact rules:
 
 - `security.selinux.entrypoints.<name> = { path; type; }` for individual files.
 - `security.selinux.fhsLabelledPackages`: for each program in these packages, the policy build asks the reference policy what type it gives the same file under `/usr`, and writes an exact rule when that differs from the generic type. This reuses the reference policy's own file contexts with no table to maintain. systemd and D-Bus are in the list by default; 128 programs get their types this way.
-- `security.selinux.confine.<service>`: per-service switches that add the entrypoints a service needs (sshd, nscd).
+- `security.selinux.confine.<service>`: per-service switches that add the entrypoints a service needs (sshd, nscd, the Nix daemon).
 
-Exact rules are appended to the policy's `file_contexts`, where they take precedence over patterns.
+Exact rules are appended to the policy's `file_contexts`, where they take precedence over patterns. A label belongs to a file, not to a name, so a configured path that is a symbolic link is resolved when the policy is built and the rule is written for the file it leads to. The programs of the `nix` package are such links.
 
 ### Switch and rollback
 
@@ -68,6 +68,14 @@ The rules in `nixos.te` fall into three groups, each commented in the file:
 1. **Consequences of the NixOS layout.** Every domain may read the store and follow `/run/current-system`, `/etc` symlinks and Nix profiles. `nosuid_transition` is allowed because the store is mounted nosuid.
 2. **Programs that still carry generic types.** Services whose programs are not named by exact path run in `initrc_t`, which is left unconfined. Confinement is opt-in per service.
 3. **Gaps between the reference policy and current systemd**, such as memory pressure files and logind's varlink socket. These are candidates for the reference policy itself.
+
+### Nix daemon and builds
+
+The daemon runs in `nix_daemon_t`. This domain is not restricted, because the daemon manages the store as root for every user. It exists so that what the daemon starts can be told apart from what a user starts.
+
+With `security.selinux.confine.nixBuilds` (off by default), every program the daemon starts enters `nix_build_t`. A build may write its outputs, which are new store files with the generic store type, and its build directory (`/nix/var/nix/builds`, type `nix_build_tmp_t`). It may read and run store content, use the sandbox's devices and the network. It may not read the password database, write the Nix database or any other file, or signal or trace other processes. This is a second layer under the isolation Nix already provides, for a build that breaks out of it.
+
+The option is off by default because the transition applies to everything the daemon runs: a `post-build-hook` and the `ssh` client for remote builders would run in the build domain and lack access. Builds without the sandbox are not supported with it.
 
 ### Userland
 
@@ -113,7 +121,7 @@ All run as NixOS VM tests (`nix flake check`).
 | `selinux-permissive-boot` | Policy loaded in the initrd, every file in the system closure labelled, PID 1 in `init_t`, activation-created files labelled, denials logged, second boot relabels nothing. |
 | `selinux-enforcing` | Enforcing boot, SSH, a Nix build, a confined demo service denied a file it has no rule for, forged path gets no privileged type, reboot. |
 | `selinux-switch-rollback` | Switching to a generation with a different policy and back changes the loaded policy and the labels both ways, with no denials. |
-| `selinux-refpolicy` | Reference policy, enforcing, zero denials: sshd, nscd, journald, logind, udev and D-Bus in their domains; SSH and console logins land in the mapped user context; Nix build; reboot. |
+| `selinux-refpolicy` | Reference policy, enforcing, zero denials: sshd, nscd, journald, logind, udev, D-Bus and the Nix daemon in their domains; SSH and console logins land in the mapped user context and are registered with logind; a Nix build runs in the build domain; reboot. |
 | `selinux-store-maintenance` | Store verification passes on a labelled store; optimisation and the label; garbage collection; a path that returns is labelled again. |
 | `selinux-refpolicy-audit` | Development tool: the reference policy test in permissive mode, printing a summary of denials. |
 
@@ -124,7 +132,8 @@ Measured so far, minimal closure of about 590 store paths: the first-boot labell
 - **Not yet tried on a real machine**, on an ephemeral root, or with a large desktop closure. The first-boot pass scales with the number of files in the store.
 - **Any change to the generic rules relabels the whole store** at the next boot or switch. The revision should cover store rules only.
 - **The whole store is labelled, not only the system closure.** This is simpler and covers user profiles, at the cost of a longer first pass.
-- **No Nix daemon domain yet.** The daemon and builds run unconfined. Paths built at run time inherit a generic store type until the next labelling run.
+- **Paths built at run time carry the generic store type** until the next labelling run. Unconfined users can run them; a confined domain cannot.
+- **Confined builds are opt-in** and do not yet distinguish builders from hooks and the remote-build `ssh` client. A build may write any store file that still has the generic type, where file permissions allow it.
 - **CIL modules (`security.selinux.modules`) work with `minimal` only.** With `refpolicy`, local policy has to go into the NixOS module for now.
 - **D-Bus is not built with SELinux support**, so it does not mediate messages by context.
 - **Password logins over SSH and `sudo` role changes are not tested.**
@@ -141,5 +150,6 @@ In order, each default-off and with its test:
 3. Enforcing mode, entrypoints, the confined service example and the forged path test.
 4. Switch and rollback.
 5. The reference policy type, login contexts, and service confinement.
+6. The Nix daemon and build domains.
 
 Policy rules in group 3 above can be offered to the reference policy independently.

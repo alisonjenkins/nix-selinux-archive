@@ -60,8 +60,8 @@
 ### Measurements and open questions for User Story 1
 
 - [ ] T029 [P] [US1] Measure labelling time and boot time added, first boot and unchanged boot, for the minimal closure and a larger server closure; record against SC-005 in `docs/design.md`
-- [ ] T030 [P] [US1] Test whether labels survive `nix-store --optimise`, `nix-store --verify --repair`, and garbage collection followed by re-substitution; record results
-- [ ] T031 [P] [US1] Test what a shared (hardlinked) file's label is when two paths map to different types, and decide the version 1 rule for store optimisation
+- [x] T030 [P] [US1] Test whether labels survive `nix-store --optimise`, `nix-store --verify --repair`, and garbage collection followed by re-substitution; record results
+- [x] T031 [P] [US1] Test what a shared (hardlinked) file's label is when two paths map to different types, and decide the version 1 rule for store optimisation
 - [ ] T032 [US1] Write the M1 section of `docs/design.md`: what works, measured numbers, answers to research.md questions 1 to 4, and what remains unknown
 
 **Checkpoint**: User Story 1 is demonstrable on its own. Review with Alison before starting M2.
@@ -70,7 +70,7 @@
 
 - [ ] T033 [US2] Tests first: `enforcing-boot.nix` covering boot, console login, SSH login, a configuration switch, a package build, reboot, with an allow-list of expected denials that must end empty
 - [x] T034 [US2] Build refpolicy offline in `pkgs/selinux-policy-nixos/` (modular assembly, monolithic as fallback) with an unconfined-by-default module set (done as `pkgs/selinux-policy-refpolicy`: monolithic build of the nixpkgs refpolicy source, selected with `security.selinux.type = "refpolicy"`)
-- [ ] T035 [US2] Write the NixOS policy layer in `policy/nixos/`: store types, Nix daemon, activation, wrappers directory, path aliases for NixOS locations (started: `nixos.te` and `nixos.fc` give store types and generic labels, and `refpolicy.nix` boots enforcing with no denials; services all run in the unconfined `initrc_t`, there is no Nix daemon domain, and `security.selinux.modules` is not supported with refpolicy yet)
+- [ ] T035 [US2] Write the NixOS policy layer in `policy/nixos/`: store types, Nix daemon, activation, wrappers directory, path aliases for NixOS locations (started: `nixos.te` and `nixos.fc` give store types and generic labels, and `refpolicy.nix` boots enforcing with no denials; services all run in the unconfined `initrc_t`, there is no Nix daemon domain, and `security.selinux.modules` is not supported with refpolicy yet) Nix daemon domain `nix_daemon_t` and opt-in build domain `nix_build_t` added (`confine.nix`, `confine.nixBuilds`).
 - [ ] T036 [US2] Enable SELinux in PAM, OpenSSH and D-Bus in `userland.nix`; add login mappings and PAM session entries (PAM and OpenSSH done for the refpolicy type, with login mappings in `security.selinux.loginMappings`; D-Bus not yet)
 - [x] T037 [US2] Label at switch: run the labeller in a private mount namespace before the new generation's services start, and load the new policy
 - [ ] T038 [US2] Refuse a switch whose policy fails to load in enforcing mode
@@ -95,7 +95,7 @@
 
 ## Phase 8: User Story 5 - Upstream package (Priority: P2) (M5, outline)
 
-- [ ] T048 [US5] Finish `docs/design.md` with the threat model and the answers to each recorded objection
+- [x] T048 [US5] Finish `docs/design.md` with the threat model and the answers to each recorded objection
 - [ ] T049 [US5] Write the user manual chapter in `docs/manual.md`
 - [ ] T050 [US5] Split the work into an ordered patch series against nixpkgs, each default-off with its test, starting with the smallest (kernel support and `secilc`)
 - [ ] T051 [US5] Have someone uninvolved reproduce M1 and M2 from the documentation (SC-008)
