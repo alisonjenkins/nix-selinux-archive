@@ -124,6 +124,9 @@ in
       before = [
         "sysinit.target"
         "shutdown.target"
+        # These create and adjust files under the paths being relabelled.
+        "systemd-tmpfiles-setup.service"
+        "systemd-journal-flush.service"
       ];
       conflicts = [ "shutdown.target" ];
       serviceConfig = {

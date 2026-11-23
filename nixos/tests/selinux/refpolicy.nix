@@ -61,7 +61,8 @@
     with subtest("PID 1 runs in the init domain"):
         pid1 = machine.succeed("cat /proc/1/attr/current").strip("\x00\n ")
         assert pid1 == "system_u:system_r:init_t:s0", pid1
-        print(machine.succeed("ps -eZ | awk '{print $1}' | sort | uniq -c | sort -rn"))
+        print(machine.succeed("ps -eo label,comm | sort | uniq -c | sort -rn"))
+        print(machine.succeed("xargs -r ls -Z < /etc/selinux/refpolicy/nixos/exact-paths | grep -v systemd_generator | head -150"))
 
     with subtest("store content carries reference policy types"):
         assert label("/run/current-system/systemd/lib/systemd/systemd") == "system_u:object_r:init_exec_t:s0"

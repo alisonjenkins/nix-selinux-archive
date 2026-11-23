@@ -112,6 +112,7 @@ gen_require(`
 	type init_runtime_t;
 	type kernel_t;
 	type nsfs_t;
+	type ramfs_t;
 	type syslogd_t;
 	type systemd_generator_t;
 	type systemd_journal_init_t;
@@ -164,6 +165,20 @@ optional_policy(`
 ')
 
 allow systemd_tmpfiles_t user_runtime_t:dir search_dir_perms;
+
+# NixOS declares the layout of /nix/var, root's channel list and the
+# /run/keys ramfs as tmpfiles rules.
+allow systemd_tmpfiles_t nix_var_t:dir manage_dir_perms;
+allow systemd_tmpfiles_t nix_var_t:file manage_file_perms;
+allow systemd_tmpfiles_t nix_var_t:lnk_file manage_lnk_file_perms;
+allow systemd_tmpfiles_t ramfs_t:dir { getattr search setattr };
+optional_policy(`
+	gen_require(`
+		type user_home_t;
+	')
+
+	allow systemd_tmpfiles_t user_home_t:file getattr;
+')
 
 allow systemd_machine_id_setup_t self:process getcap;
 allow systemd_machine_id_setup_t { fs_t nsfs_t }:filesystem getattr;
