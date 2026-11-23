@@ -2,12 +2,7 @@
 
 **Date**: 2026-11-21 | **Feature**: [spec.md](./spec.md)
 
-This is the combined summary of four research strands. The detailed reports, with sources and a verified/inferred tag on every claim, are in [`docs/research/`](../../docs/research/):
-
-- `01-nixpkgs-current-state.md`: what nixpkgs and NixOS ship today
-- `02-prior-art.md`: earlier attempts and upstream discussion
-- `03-store-labelling-design.md`: options for labelling `/nix/store`
-- `04-policy-and-integration.md`: policy base, build model, boot flow, userspace
+This is the combined summary of four research strands: what nixpkgs and NixOS ship today, earlier attempts and upstream discussion, options for labelling `/nix/store`, and the policy base, build model, boot flow and userspace.
 
 Nothing here has been run. Everything about runtime behaviour is a hypothesis for the prototype to test.
 
@@ -27,12 +22,12 @@ Verified against nixpkgs master (commit f657589a, 2026-11-21):
 
 ## 2. Why earlier attempts stalled
 
-1. **Nix core will not carry labels.** Nix PR #2670 was closed at the Nix team meeting of 2022-12-09 with "approach SELinux through the installer". On nix#5327 Eelco Dolstra rejected store metadata of this kind and pointed to AppArmor. NARs carry no xattrs by design (nix#185). RFC 41 was closed in 2019.
+1. **Nix core will not carry labels.** Nix PR #2670 was closed at the Nix team meeting of 2022-12-09 with "approach SELinux through the installer". On nix#5327 store metadata of this kind was rejected, with a pointer to AppArmor. NARs carry no xattrs by design (nix#185). RFC 41 was closed in 2019.
 2. **The RFC 41 threat-model objection.** If a label is granted by a path pattern such as `/nix/store/*-nginx-*/bin/nginx`, any user who can ask the daemon to build something can create a matching path and obtain a trusted label.
 3. **The nixpkgs review bar.** PR #396168 (global `selinuxSupport` flag) stalled because reviewers (flokli, Ma27, winterqt) will not merge untested global options with no NixOS test, no documentation and no proof that the end-to-end system works.
-4. **No working end-to-end demo.** The furthest public result is Tristan Ross's April 2025 VM with refpolicy loaded (mode not confirmed). No one has shown an enforcing NixOS boot.
+4. **No working end-to-end demo.** The furthest public result is an April 2025 VM with refpolicy loaded (mode not confirmed). No one has shown an enforcing NixOS boot.
 
-Active people as of November 2026: Naxdy (linux-pam and openssh SELinux PRs, claims an SELinux NixOS VM test), RossComputerGuy and numinit (packages, module PR). The Discourse thread "SELinux on NixOS" was revived this month and partly turned hostile over suspected LLM-generated claims, so anything we publish should be demonstrable and disclose tool use.
+As of November 2026 there are open nixpkgs pull requests for SELinux support in linux-pam and openssh, for the SELinux packages, and for a draft module. Anything published from this work should be demonstrable.
 
 ## 3. Key technical findings
 
