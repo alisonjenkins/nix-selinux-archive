@@ -155,10 +155,14 @@
             "dhcpcd.service": "dhcpc_t",
         }.items():
             assert domain(unit) == expected, (unit, domain(unit))
-        gettys = machine.succeed("ps -C agetty -o label= | sort -u").strip()
+        # The prompt on tty1 has become a login session by now.
+        machine.succeed("systemctl start getty@tty2.service")
+        gettys = machine.wait_until_succeeds("ps -C agetty -o label= | sort -u", timeout=30).strip()
         print(gettys)
+        assert gettys == "system_u:system_r:getty_t:s0", gettys
         if strict:
-            assert gettys == "system_u:system_r:getty_t:s0", gettys
+            logins = machine.succeed("ps -C login -o label= | sort -u").strip()
+            assert logins == "system_u:system_r:local_login_t:s0", logins
         # What confinement buys: unlike an unconfined service, sshd may
         # not read the shadow file or load a kernel module.
         for rule in [
