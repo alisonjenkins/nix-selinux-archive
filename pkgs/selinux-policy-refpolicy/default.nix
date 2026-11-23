@@ -79,7 +79,9 @@
     done < fhs-candidates
     echo "FHS-derived rules: $(wc -l < fhs-rules)"
     cat fhs-rules
-    cat fhs-rules >> $out/contexts/files/file_contexts
+    # A rule the system configuration gives for the same path wins.
+    awk -F'\t' 'NR == FNR { given[$1] = 1; next } !($1 in given)' \
+      "$extraFileContextsPath" fhs-rules >> $out/contexts/files/file_contexts
     cat "$extraFileContextsPath" >> $out/contexts/files/file_contexts
     ${lib.optionalString (seusers != null) ''
       cat ${builtins.toFile "seusers" seusers} > $out/seusers
