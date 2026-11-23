@@ -139,6 +139,14 @@ insert_sorted(
     "./security/selinux/default.nix",
 )
 
+# The manual chapter. Outside nixpkgs the module cannot declare it,
+# because the manual then fails to build without the redirects below.
+module_path = target / MODULE / "default.nix"
+module_text = module_path.read_text()
+if not module_text.endswith("  };\n}\n"):
+    sys.exit(f"{module_path}: unexpected ending, cannot add meta.doc")
+module_path.write_text(module_text[: -len("}\n")] + "\n  meta.doc = ./selinux.md;\n}\n")
+
 redirects_path = target / "nixos/doc/manual/redirects.json"
 redirects = json.loads(redirects_path.read_text())
 for anchor in re.findall(r"\{#([a-z0-9-]+)\}", (here / MODULE / "selinux.md").read_text()):

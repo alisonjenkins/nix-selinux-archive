@@ -157,6 +157,4 @@ in
       SELINUXTYPE=${cfg.type}
     '';
   };
-
-  meta.doc = ./selinux.md;
 }

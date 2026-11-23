@@ -16,7 +16,7 @@ The commits, in order:
 | `selinux-policy-minimal: init` | The minimal policy, `pkgs/by-name/se/selinux-policy-minimal` | the build validates the file contexts against the policy |
 | `nixos/selinux: init` | The module, the setup tool, the reference policy build, the manual chapter, a release note, and seven VM tests | `nixosTests.selinux-*` |
 
-The `nixos/` and `pkgs/` trees of this repository are copied unchanged. The script adds only what nixpkgs keeps in shared files: entries in `module-list.nix`, `all-tests.nix`, the manual's `redirects.json` and the release notes.
+The `nixos/` and `pkgs/` trees of this repository are copied unchanged. The script adds only what nixpkgs keeps in shared files: entries in `module-list.nix`, `all-tests.nix`, the manual's `redirects.json` and the release notes. It also adds one line to the module, `meta.doc`, which declares the manual chapter; outside nixpkgs that line would break the manual build of any system using the module.
 
 Run the tests from the checkout:
 
@@ -28,7 +28,7 @@ nix-build nixos/release.nix -A manualHTML.x86_64-linux
 
 ## State
 
-Checked against nixpkgs `2786a2a72088` (the revision this repository's flake is locked to): the packages, the tests and the NixOS manual evaluate and the manual builds.
+Checked against nixpkgs `2786a2a72088` (the revision this repository's flake is locked to): the two packages build, the NixOS manual builds with the chapter, and all eight VM tests pass from the patched tree (with KVM, 55 to 105 s each).
 
 ## Before submitting
 
