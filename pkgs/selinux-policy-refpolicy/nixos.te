@@ -173,6 +173,9 @@ allow systemd_tmpfiles_t nix_var_t:dir manage_dir_perms;
 allow systemd_tmpfiles_t nix_var_t:file manage_file_perms;
 allow systemd_tmpfiles_t nix_var_t:lnk_file manage_lnk_file_perms;
 allow systemd_tmpfiles_t ramfs_t:dir { getattr search setattr };
+# NixOS marks /var/empty immutable.
+allow systemd_tmpfiles_t self:capability linux_immutable;
+
 # The dynamic loader stub NixOS installs in /lib64 is a symlink.
 allow systemd_tmpfiles_t lib_t:lnk_file manage_lnk_file_perms;
 
@@ -185,3 +188,12 @@ allow systemd_journal_init_t var_log_t:dir search_dir_perms;
 allow systemd_journal_init_t systemd_journal_t:file map;
 allow systemd_journal_init_t etc_runtime_t:file read_file_perms;
 allow systemd_journal_init_t tty_device_t:chr_file rw_chr_file_perms;
+
+# dbus-broker subscribes to systemd's unit state to activate services.
+optional_policy(`
+	gen_require(`
+		type system_dbusd_t;
+	')
+
+	allow system_dbusd_t init_t:system status;
+')
