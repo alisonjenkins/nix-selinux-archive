@@ -124,7 +124,7 @@ An enforcing system refuses to boot if its policy cannot be loaded, instead of r
 
 ### Store optimisation {#module-security-selinux-store-optimisation}
 
-`nix-store --optimise` links identical files together, and a linked file has one label. Labels are restored at boot, at switch and after `nix.optimise.automatic`. After optimising by hand, run `nixos-selinux relabel`. Do not use `nix.settings.auto-optimise-store`; the module warns about it.
+Safe in every form: `nix-store --optimise`, `nix.optimise.automatic` and `nix.settings.auto-optimise-store`. Optimisation links identical files together and can drop a label; the module notices and puts it back by itself.
 
 ## Limits {#module-security-selinux-limits}
 

@@ -19,6 +19,23 @@
       virtualisation.memorySize = 2048;
     };
 
+  # The same with Nix linking identical files as it adds them.
+  nodes.auto =
+    { ... }:
+    {
+      imports = [
+        ./ext4-nix.nix
+      ];
+
+      security.selinux = {
+        enable = true;
+        mode = "enforcing";
+      };
+      nix.settings.auto-optimise-store = true;
+
+      virtualisation.memorySize = 2048;
+    };
+
   testScript = ''
     def label(path):
         return machine.succeed(f"stat -c %C {path}").strip()
@@ -62,13 +79,16 @@
         # If it kept the copy's, the real program has just lost its type.
         print("after optimisation:", label(systemd))
 
-    with subtest("the labeller puts the exact label back"):
-        out = machine.succeed("/run/current-system/selinux-setup 2>&1")
-        print(out)
+    with subtest("the exact label comes back by itself"):
+        # Nobody runs anything: the path unit notices the replaced file.
+        machine.wait_until_succeeds(
+            f"test $(stat -c %C {systemd}) = system_u:object_r:init_exec_t:s0", timeout=30
+        )
         # The copy is byte-for-byte the real program, so sharing its
         # label gives away nothing.
-        assert label(systemd) == "system_u:object_r:init_exec_t:s0", label(systemd)
         assert label(copy) == "system_u:object_r:init_exec_t:s0", label(copy)
+        machine.wait_until_succeeds("! systemctl is-active -q selinux-store-labels.service")
+        healthy()
 
     with subtest("labelling the copy's store path does not take the label away"):
         machine.reboot()
@@ -98,5 +118,29 @@
         assert label(f"{forged}/unique") == "system_u:object_r:nix_store_t:s0"
         assert label(systemd) == "system_u:object_r:init_exec_t:s0", label(systemd)
         assert machine.succeed("nix-store --verify --check-contents 2>&1 | grep -ci 'modified\\|error' || true").strip() == "0"
+
+    with subtest("linking files as they are added keeps labels right"):
+        auto.start(allow_reboot=True)
+        auto.wait_for_unit("multi-user.target")
+        program = auto.succeed("readlink -f /run/current-system/systemd/lib/systemd/systemd").strip()
+        expected = "system_u:object_r:init_exec_t:s0"
+        assert auto.succeed(f"stat -c %C {program}").strip() == expected
+        auto.succeed(
+            "mkdir -p /tmp/forged/lib/systemd",
+            f"cp {program} /tmp/forged/lib/systemd/systemd",
+            "echo marker > /tmp/forged/unique",
+        )
+        forged = auto.succeed("nix-store --add /tmp/forged").strip()
+        assert auto.succeed(f"stat -c %i {forged}/lib/systemd/systemd") == auto.succeed(f"stat -c %i {program}"), "not linked"
+        auto.succeed("nix-store --optimise >&2")
+        auto.wait_until_succeeds(f"test $(stat -c %C {program}) = {expected}", timeout=30)
+        auto.reboot()
+        auto.wait_for_unit("multi-user.target")
+        assert auto.succeed(f"stat -c %C {program}").strip() == expected
+        assert auto.succeed("getenforce").strip() == "Enforcing"
+        failed = auto.succeed("systemctl --failed --no-legend").strip()
+        assert failed == "", failed
+        denied = auto.succeed("journalctl -b --no-pager | grep 'avc:  denied' || true").strip()
+        assert denied == "", denied
   '';
 }

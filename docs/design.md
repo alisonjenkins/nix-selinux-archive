@@ -108,10 +108,10 @@ Not protected against, by design in this version:
 Three measures deal with it:
 
 1. The setup tool checks the files with exact rules on every run and puts their labels back last, whatever the markers say.
-2. Scheduled optimisation (`nix.optimise.automatic`) is followed by a run of the setup tool. `nix.settings.auto-optimise-store` produces a warning.
+2. A systemd path unit, generated with the policy, watches every file that has an exact rule. Whatever replaces one of them (any form of optimisation, a store repair) starts the setup tool, which puts the label back within moments. Nothing has to be remembered or avoided: `nix-store --optimise` by hand, `nix.optimise.automatic` and `nix.settings.auto-optimise-store` are all covered.
 3. Confined services name their domain in the unit (`SELinuxContext=`). The label is then necessary but not sufficient: without it the service fails to start instead of running unconfined.
 
-Open point: whether an unprivileged user can trigger optimisation through the Nix daemon, and so cause a confined service to fail at its next restart. If so, this is a local denial of service until the next boot, switch or optimisation run, and the upstream discussion should cover whether Nix can prefer the existing inode.
+Open point: whether an unprivileged user can trigger optimisation through the Nix daemon, and so cause a confined service to fail at its next restart. If so, a confined service that restarts in the moment before the label is back fails to start, and the upstream discussion should cover whether Nix can prefer the existing inode.
 
 ## What the tests show
 
