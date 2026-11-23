@@ -63,6 +63,10 @@ in
     };
   };
 
+  # Tests in nixpkgs run without Nix unless they ask for it. These build
+  # with it and query its database.
+  nix.enable = true;
+
   # Tell Nix about the store paths in the image, as an installer would have.
   boot.postBootCommands = lib.mkBefore ''
     if [ -f /nix/registration ]; then
