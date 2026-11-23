@@ -122,7 +122,7 @@ If an enforcing system does not boot or cannot be logged in to:
 
 In enforcing mode the system refuses to boot if the policy cannot be loaded or the store cannot be labelled, instead of continuing unprotected. Options 2 and 3 get past that.
 
-Options 2 and 3 follow from how the kernel and systemd treat these parameters. They are not yet covered by a VM test.
+Options 2 and 3 are covered by the `selinux-recovery` test. A `nixos-rebuild switch` during a permissive rescue boot applies the configured mode again, so the system becomes enforcing at that point if the configuration says so.
 
 ## Limits
 

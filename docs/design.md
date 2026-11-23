@@ -123,6 +123,7 @@ All run as NixOS VM tests (`nix flake check`).
 | `selinux-switch-rollback` | Switching to a generation with a different policy and back changes the loaded policy and the labels both ways, with no denials. |
 | `selinux-refpolicy` | Reference policy, enforcing, zero denials: sshd, nscd, journald, logind, udev, D-Bus and the Nix daemon in their domains; SSH and console logins land in the mapped user context and are registered with logind; a Nix build runs in the build domain; reboot. |
 | `selinux-store-maintenance` | Store verification passes on a labelled store; optimisation and the label; garbage collection; a path that returns is labelled again. |
+| `selinux-recovery` | An enforcing configuration boots permissive with `enforcing=0` on the kernel command line, and without SELinux when it is left out of `lsm=`. |
 | `selinux-refpolicy-audit` | Development tool: the reference policy test in permissive mode, printing a summary of denials. |
 
 Measured with KVM on a 32-core desktop (`nix build .#selinux-measure-desktop` for the second row):

@@ -81,6 +81,10 @@
             import ./nixos/tests/selinux/switch-rollback.nix { selinuxModule = self.nixosModules.selinux; }
           );
 
+          selinux-recovery = pkgs.testers.runNixOSTest (
+            import ./nixos/tests/selinux/recovery.nix { selinuxModule = self.nixosModules.selinux; }
+          );
+
           selinux-refpolicy = pkgs.testers.runNixOSTest (
             import ./nixos/tests/selinux/refpolicy.nix { selinuxModule = self.nixosModules.selinux; }
           );
