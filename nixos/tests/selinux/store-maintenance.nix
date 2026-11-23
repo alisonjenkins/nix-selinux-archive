@@ -59,9 +59,17 @@
         assert label(copy) != "system_u:object_r:init_exec_t:s0", label(copy)
         machine.succeed("nix-store --optimise >&2")
         assert inode(copy) == inode(systemd), "optimisation did not link the copy"
-        # One inode has one label. The copy is byte-for-byte the real
-        # program, so sharing its label gives away nothing.
-        assert label(systemd) == "system_u:object_r:init_exec_t:s0"
+        # One inode has one label, and Nix may keep either file's inode.
+        # If it kept the copy's, the real program has just lost its type.
+        print("after optimisation:", label(systemd))
+
+    with subtest("the labeller puts the exact label back"):
+        out = machine.succeed("/run/current-system/selinux-setup 2>&1")
+        print(out)
+        # The copy is byte-for-byte the real program, so sharing its
+        # label gives away nothing.
+        assert label(systemd) == "system_u:object_r:init_exec_t:s0", label(systemd)
+        assert label(copy) == "system_u:object_r:init_exec_t:s0", label(copy)
 
     with subtest("labelling the copy's store path does not take the label away"):
         machine.reboot()
@@ -80,7 +88,7 @@
             "find -L /run/current-system/sw/bin -maxdepth 1 -type f | sort | xargs stat -L -c '%C %n' | sha256sum"
         )
         assert before == after
-        assert label(systemd) == "system_u:object_r:init_exec_t:s0"
+        assert label(systemd) == "system_u:object_r:init_exec_t:s0", label(systemd)
 
     with subtest("a path that comes back after collection is labelled again"):
         again = machine.succeed("nix-store --add /tmp/forged").strip()
@@ -89,7 +97,7 @@
         machine.wait_for_unit("multi-user.target")
         healthy()
         assert label(f"{forged}/unique") == "system_u:object_r:nix_store_t:s0"
-        assert label(systemd) == "system_u:object_r:init_exec_t:s0"
+        assert label(systemd) == "system_u:object_r:init_exec_t:s0", label(systemd)
         assert machine.succeed("nix-store --verify --check-contents 2>&1 | grep -ci 'modified\\|error' || true").strip() == "0"
   '';
 }

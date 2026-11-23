@@ -4,6 +4,7 @@
   coreutils,
   findutils,
   gawk,
+  gnugrep,
   gnused,
   attr,
   util-linux,
@@ -18,6 +19,7 @@ writeShellApplication {
     coreutils
     findutils
     gawk
+    gnugrep
     gnused
     attr
     util-linux

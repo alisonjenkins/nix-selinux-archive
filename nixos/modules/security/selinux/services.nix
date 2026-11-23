@@ -40,6 +40,18 @@ in
       }
     ];
 
+    # Name the domain in the unit as well. The label on the program is
+    # then necessary but not sufficient: if it is ever missing, the
+    # service fails to start instead of running unconfined.
+    systemd.services = {
+      sshd = lib.mkIf (cfg.confine.sshd && config.services.openssh.enable) {
+        serviceConfig.SELinuxContext = "system_u:system_r:sshd_t:s0";
+      };
+      nscd = lib.mkIf (cfg.confine.nscd && config.services.nscd.enable) {
+        serviceConfig.SELinuxContext = "system_u:system_r:nscd_t:s0";
+      };
+    };
+
     security.selinux.entrypoints = lib.mkMerge [
       (lib.mkIf (cfg.confine.sshd && config.services.openssh.enable) (
         lib.genAttrs' [ "bin/sshd" "libexec/sshd-session" "libexec/sshd-auth" ] (
