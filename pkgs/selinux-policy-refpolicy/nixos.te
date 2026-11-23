@@ -1,0 +1,36 @@
+policy_module(nixos)
+
+gen_require(`
+	attribute domain;
+	type initrc_t;
+')
+
+########################################
+# Declarations
+#
+
+# Content of the Nix store that no more specific rule matches.
+type nix_store_t;
+files_type(nix_store_t)
+files_mountpoint(nix_store_t)
+
+# Nix state outside the store: database, profiles, garbage collector roots.
+type nix_var_t;
+files_type(nix_var_t)
+
+########################################
+# Policy
+#
+
+# The store is world-readable by design and every program lives in it,
+# so every domain may read it. Executing needs a more specific type.
+allow domain nix_store_t:dir list_dir_perms;
+allow domain nix_store_t:file { read_file_perms map };
+allow domain nix_store_t:lnk_file read_lnk_file_perms;
+
+# Programs carry generic types unless the system configuration names
+# them by exact store path, so services start in the generic service
+# domain. Leave that domain unconfined: confinement is opt-in.
+optional_policy(`
+	unconfined_domain(initrc_t)
+')

@@ -72,6 +72,10 @@
             import ./nixos/tests/selinux/switch-rollback.nix { selinuxModule = self.nixosModules.selinux; }
           );
 
+          selinux-refpolicy-permissive = pkgs.testers.runNixOSTest (
+            import ./nixos/tests/selinux/refpolicy-permissive.nix { selinuxModule = self.nixosModules.selinux; }
+          );
+
           formatting = pkgs.runCommand "check-formatting" { nativeBuildInputs = [ pkgs.nixfmt ]; } ''
             find ${nixFiles} -name '*.nix' -print0 | xargs -0 nixfmt --check
             touch $out

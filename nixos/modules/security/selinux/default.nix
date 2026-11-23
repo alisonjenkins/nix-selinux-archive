@@ -36,6 +36,9 @@ in
         Name of the policy, written to {file}`/etc/selinux/config` as
         `SELINUXTYPE` and used as the directory name under
         {file}`/etc/selinux`.
+        `minimal` is a small unconfined-by-default policy
+        written for NixOS. `refpolicy` is the SELinux reference policy
+        with a NixOS module added (experimental).
       '';
     };
 
