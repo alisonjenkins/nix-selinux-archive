@@ -75,7 +75,7 @@
             "cp /root/.ssh/id_ed25519.pub /root/.ssh/authorized_keys",
         )
         session = machine.succeed(
-            "ssh -o StrictHostKeyChecking=no -o BatchMode=yes root@localhost id -Z"
+            "ssh -n -o StrictHostKeyChecking=no -o BatchMode=yes root@localhost id -Z"
         ).strip()
         assert session == "system_u:system_r:unconfined_t:s0", session
 
