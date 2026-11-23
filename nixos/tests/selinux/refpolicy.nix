@@ -111,7 +111,8 @@
             "-s sshd_t -c system -p module_load",
             "-s nscd_t -t shadow_t -c file -p read",
         ]:
-            found = machine.succeed(f"sesearch -A {rule}").strip()
+            # Rules under a boolean that is off are listed with ":False".
+            found = machine.succeed(f"sesearch -A {rule} | grep -v ':False$' || true").strip()
             assert found == "", found
         assert machine.succeed("sesearch -A -s initrc_t -t shadow_t -c file -p read").strip() != ""
 
