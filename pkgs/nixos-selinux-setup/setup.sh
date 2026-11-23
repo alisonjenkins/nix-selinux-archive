@@ -87,6 +87,11 @@ for dir in / /etc /var /nix /nix/var "$store" /home /root /tmp /boot /bin /usr /
   if [ -d "$dir" ]; then label_one "$dir"; fi
 done
 
+# Symlinks that activation creates under /run and every domain follows.
+for link in /run/current-system /run/booted-system; do
+  if [ -L "$link" ]; then setfiles -F "$spec" "$link" 2>/dev/null || true; fi
+done
+
 # A full pass over the mutable paths, when asked to and only if the
 # labelling rules changed since the last one. This runs after activation,
 # so it also corrects what inheritance alone got wrong.

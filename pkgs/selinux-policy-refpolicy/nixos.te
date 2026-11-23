@@ -4,6 +4,7 @@ gen_require(`
 	attribute domain;
 	type initrc_t;
 	type init_t;
+	type var_run_t;
 ')
 
 ########################################
@@ -34,6 +35,12 @@ allow domain nix_store_t:lnk_file read_lnk_file_perms;
 # transition itself still needs its own rule.
 allow domain domain:process2 nosuid_transition;
 
+# /run/current-system and /run/booted-system point into the store and
+# are followed by every program that looks for a tool or a setting. They
+# are replaced on every switch, and a fresh one carries the generic
+# runtime type until the next boot labels it.
+allow domain var_run_t:lnk_file read_lnk_file_perms;
+
 # Programs carry generic types unless the system configuration names
 # them by exact store path, so services start in the generic service
 # domain. Leave that domain unconfined: confinement is opt-in.
@@ -56,3 +63,15 @@ domain_role_change_exemption(initrc_t)
 # Seen at boot: PCRE just-in-time compilation in grep, and agetty.
 allow initrc_t self:process execmem;
 allow initrc_t self:capability2 checkpoint_restore;
+
+# The reference policy lets sshd start sessions only in its own user
+# domains. Logins here are mapped to the unconfined user.
+optional_policy(`
+	gen_require(`
+		type sshd_t;
+		type unconfined_t;
+	')
+
+	unconfined_shell_domtrans(sshd_t)
+	allow sshd_t unconfined_t:process { noatsecure rlimitinh siginh };
+')

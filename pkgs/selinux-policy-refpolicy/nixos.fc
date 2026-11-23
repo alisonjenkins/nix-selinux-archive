@@ -18,3 +18,5 @@
 /nix/store/[^/]+/(etc|lib|share|example)/systemd/(system|user|network)(/.*)?	gen_context(system_u:object_r:systemd_unit_t,s0)
 
 /run/wrappers(/.*)?	gen_context(system_u:object_r:bin_t,s0)
+/run/current-system	-l	gen_context(system_u:object_r:nix_store_t,s0)
+/run/booted-system	-l	gen_context(system_u:object_r:nix_store_t,s0)

@@ -26,6 +26,9 @@
     "NAME=${name}"
     "TYPE=mcs"
     "UNK_PERMS=allow"
+    # No separation between SELinux users beyond what types give, as in
+    # other targeted-style distributions.
+    "UBAC=n"
     "SETFILES=${lib.getExe' policycoreutils "setfiles"}"
   ];
 
@@ -39,6 +42,9 @@
   postInstall = ''
     mv $out/etc/selinux/${name}/* $out/
     rm -r $out/etc
+    # Home directory rules are generated from the accounts in the build
+    # sandbox, where root's home is /build.
+    sed -i -E 's|^/build([/[:space:]])|/root\1|' $out/contexts/files/file_contexts.homedirs
     cat "$extraFileContextsPath" >> $out/contexts/files/file_contexts
     ${lib.optionalString (seusers != null) ''
       cat ${builtins.toFile "seusers" seusers} > $out/seusers
