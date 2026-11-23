@@ -163,13 +163,44 @@ in
         if [ "''${IN_NIXOS_SYSTEMD_STAGE1:-}" != true ] && [ -e /sys/fs/selinux/load ]; then
           # Load the new policy first: labels that use its new types are
           # only valid once the kernel knows them.
-          if [ "$(tr -d '\0' < /proc/self/attr/current)" != kernel ]; then
-            ${lib.getExe' pkgs.policycoreutils "load_policy"}
+          # A policy the kernel refuses stops here: labelling with types the
+          # kernel does not know would fail, and the old policy stays in
+          # force. The pre-switch check below catches the usual cause first.
+          if [ "$(tr -d '\0' < /proc/self/attr/current)" = kernel ]; then
+            ${setup} --relabel-mutable
+          elif ${lib.getExe' pkgs.policycoreutils "load_policy"}; then
             echo ${if cfg.mode == "enforcing" then "1" else "0"} > /sys/fs/selinux/enforce
+            ${setup} --relabel-mutable
+          else
+            echo "security.selinux: the kernel rejected the new policy; the previous policy stays loaded and nothing was relabelled" >&2
+            false
           fi
-          ${setup} --relabel-mutable
         fi
       '';
     };
+
+    # Refuse to switch to a generation whose policy the running kernel
+    # cannot load, before anything of the new generation is activated.
+    system.preSwitchChecks.selinux = ''
+      case "''${2:-}" in
+        switch | test) ;;
+        *) exit 0 ;;
+      esac
+      [ -r /sys/fs/selinux/policyvers ] || exit 0
+      policy=${policyFile}
+      od=${lib.getExe' pkgs.coreutils "od"}
+      magic=$("$od" -An -tx4 -N4 "$policy" | tr -d ' ')
+      version=$("$od" -An -tu4 -j16 -N4 "$policy" | tr -d ' ')
+      supported=$(cat /sys/fs/selinux/policyvers)
+      if [ "$magic" != f97cff8c ]; then
+        echo "security.selinux: $policy is not a kernel policy" >&2
+        exit 1
+      fi
+      if [ "$version" -gt "$supported" ]; then
+        echo "security.selinux: the new policy has format version $version, but the running kernel accepts at most $supported." >&2
+        echo "Set security.selinux.policyVersion = $supported, or activate this generation with 'boot' and reboot into its kernel." >&2
+        exit 1
+      fi
+    '';
   };
 }

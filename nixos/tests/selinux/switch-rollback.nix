@@ -4,7 +4,7 @@
   name = "selinux-switch-rollback";
 
   nodes.machine =
-    { ... }:
+    { pkgs, ... }:
     {
       imports = [
         ./ext4-nix.nix
@@ -26,6 +26,25 @@
             /var/lib/switch-test(/.*)?	system_u:object_r:switch_test_file_t:s0
           '';
         };
+      };
+
+      # A third generation whose policy claims a format version no kernel
+      # accepts.
+      specialisation.badpolicy.configuration = {
+        security.selinux.policy =
+          let
+            good = pkgs.selinux-policy-minimal;
+          in
+          pkgs.runCommand "selinux-policy-unloadable"
+            {
+              passthru = { inherit (good) policyVersion; };
+            }
+            ''
+              cp -r ${good} $out
+              chmod -R u+w $out
+              printf '\x63\x00\x00\x00' \
+                | dd of=$out/policy/policy.${toString good.policyVersion} bs=1 seek=16 conv=notrunc
+            '';
       };
 
       virtualisation.memorySize = 2048;
@@ -76,6 +95,19 @@
         healthy()
         machine.fail(f"chcon {new_type} /var/lib/switch-test/file")
         assert label("/var/lib/switch-test/file") == "system_u:object_r:var_t:s0"
+
+    with subtest("a policy the kernel cannot load is refused before the switch"):
+        status, output = machine.execute(
+            f"{base}/specialisation/badpolicy/bin/switch-to-configuration test 2>&1"
+        )
+        print(output)
+        assert status != 0, output
+        assert "format version 99" in output, output
+        assert "Pre-switch check 'selinux' failed" in output, output
+        healthy()
+        assert machine.succeed("readlink -f /run/current-system").strip() == base
+        # The running policy is still the base one.
+        machine.fail(f"chcon {new_type} /tmp/probe")
 
     with subtest("nothing was denied along the way"):
         denials = machine.succeed(
