@@ -11,6 +11,9 @@
   # Packages whose programs get the types the reference policy gives the
   # same programs at their usual FHS locations.
   fhsPackages ? [ ],
+  # false removes the policy's dontaudit rules, so that every denial is
+  # logged. For policy development.
+  dontaudit ? true,
   # Default values of policy booleans and tunables, by name.
   booleans ? { },
   # Contents of the seusers file; null keeps the reference policy's own.
@@ -49,6 +52,10 @@
     "UBAC=n"
     "SETFILES=${lib.getExe' policycoreutils "setfiles"}"
   ];
+
+  preInstall = lib.optionalString (!dontaudit) ''
+    make enableaudit ''${makeFlags[@]}
+  '';
 
   installTargets = "install";
 

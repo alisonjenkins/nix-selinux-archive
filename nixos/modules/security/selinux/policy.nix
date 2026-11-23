@@ -134,6 +134,17 @@ in
       '';
     };
 
+    logAllDenials = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Remove the policy's `dontaudit` rules, so that denials the policy
+        normally hides are logged too. For policy development: a hidden
+        denial still denies in enforcing mode. Used by the `refpolicy`
+        policy type.
+      '';
+    };
+
     booleans = lib.mkOption {
       type = lib.types.attrsOf lib.types.bool;
       default = { };
@@ -179,6 +190,7 @@ in
             extraFileContexts = cfg.fileContexts + exactRules;
             fhsPackages = cfg.fhsLabelledPackages;
             inherit (cfg) booleans;
+            dontaudit = !cfg.logAllDenials;
             seusers = lib.concatStrings (
               lib.mapAttrsToList (login: m: "${login}:${m.user}:${m.range}\n") cfg.loginMappings
             );

@@ -23,6 +23,7 @@
         enable = true;
         type = "refpolicy";
         mode = if enforcing then "enforcing" else "permissive";
+        logAllDenials = !enforcing;
       };
 
       services.openssh.enable = true;
@@ -83,7 +84,7 @@
         daemon = machine.succeed("ps -o label= -p $(systemctl show -P MainPID sshd.service)").strip()
         assert daemon == "system_u:system_r:sshd_t:s0", daemon
         session = machine.succeed(
-            "ssh -o StrictHostKeyChecking=no -o BatchMode=yes root@localhost id -Z"
+            "ssh -n -o StrictHostKeyChecking=no -o BatchMode=yes root@localhost id -Z"
         ).strip()
         assert session == "unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023", session
 
