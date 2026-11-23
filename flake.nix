@@ -48,10 +48,13 @@
             fileset = lib.fileset.fileFilter (file: file.hasExt "nix") ./.;
           };
           evalChecks = lib.mapAttrs' (name: lib.nameValuePair "selinux-eval-${name}") (
-            pkgs.callPackage ./nixos/tests/selinux/eval.nix {
-              inherit (lib) nixosSystem;
-              selinuxModule = self.nixosModules.selinux;
-            }
+            # callPackage adds override functions, which are not checks.
+            lib.filterAttrs (_: lib.isDerivation) (
+              pkgs.callPackage ./nixos/tests/selinux/eval.nix {
+                inherit (lib) nixosSystem;
+                selinuxModule = self.nixosModules.selinux;
+              }
+            )
           );
         in
         evalChecks
