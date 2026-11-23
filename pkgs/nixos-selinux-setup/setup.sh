@@ -125,16 +125,15 @@ find "$store" -mindepth 1 -maxdepth 1 ! -name .links -print | sort > "$work/all"
 # Store paths that hold a file with an exact rule. Their labels depend on
 # those rules as well as on the generic ones.
 : > "$work/exact"
-for path in "${exact[@]}"; do
+: > "$work/exact-files"
+{
+  if [ ${#exact[@]} -gt 0 ]; then printf '%s\n' "${exact[@]}"; fi
+  if [ -n "$exact_file" ] && [ -e "$exact_file" ]; then cat "$exact_file"; fi
+} | while IFS= read -r path; do
   root=$(echo "$path" | cut -d/ -f1-4)
   if [ -e "$root" ]; then echo "$root" >> "$work/exact"; fi
+  if [ -e "$path" ]; then echo "$path" >> "$work/exact-files"; fi
 done
-if [ -n "$exact_file" ] && [ -e "$exact_file" ]; then
-  while IFS= read -r path; do
-    root=$(echo "$path" | cut -d/ -f1-4)
-    if [ -e "$root" ]; then echo "$root" >> "$work/exact"; fi
-  done < "$exact_file"
-fi
 sort -u -o "$work/exact" "$work/exact"
 
 # Store paths already labelled under the current rules carry a marker on
@@ -161,8 +160,20 @@ sort -o "$work/full" "$work/full"
 
 comm -23 "$work/all" "$work/done" > "$work/todo"
 
+# Files with exact rules are checked on every run, whatever the markers
+# say. With store optimisation, a file of identical content in another
+# store path is the same inode, and labelling that other path under the
+# generic rules takes the exact label away. Exact rules are applied last
+# so that they win.
+drift=
+if [ -s "$work/exact-files" ]; then
+  drift=$(xargs -a "$work/exact-files" -d '\n' -r setfiles -n -v -F "$spec" 2>/dev/null \
+    | grep -c '^Would relabel' || true)
+  if [ "$drift" = 0 ]; then drift=; fi
+fi
+
 count=$(wc -l < "$work/todo")
-if [ "$count" -eq 0 ]; then
+if [ "$count" -eq 0 ] && [ -z "$drift" ]; then
   log "store labels are up to date"
   exit 0
 fi
@@ -178,8 +189,14 @@ if [ ! -w "$store" ]; then
 fi
 
 start=$(date +%s)
-log "labelling $count store paths"
-setfiles -F -f "$work/todo" "$spec"
+if [ "$count" -gt 0 ]; then
+  log "labelling $count store paths"
+  setfiles -F -f "$work/todo" "$spec"
+fi
+if [ -s "$work/exact-files" ]; then
+  if [ -n "$drift" ]; then log "restoring $drift exact labels"; fi
+  xargs -a "$work/exact-files" -d '\n' -r setfiles -F "$spec"
+fi
 
 # Mark the paths only once all of them are labelled, so an interrupted run
 # is repeated in full.
