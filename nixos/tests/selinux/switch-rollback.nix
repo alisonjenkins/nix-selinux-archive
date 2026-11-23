@@ -1,6 +1,5 @@
 # Switching to a generation with a different policy and rolling back:
 # the loaded policy and the labels follow the active generation.
-{ selinuxModule }:
 {
   name = "selinux-switch-rollback";
 
@@ -8,7 +7,6 @@
     { ... }:
     {
       imports = [
-        selinuxModule
         ./ext4-nix.nix
       ];
 

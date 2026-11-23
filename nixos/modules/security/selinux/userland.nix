@@ -34,10 +34,6 @@ let
         modules/module-meson.build
     '';
   });
-
-  # Not in nixpkgs yet. The module must work without an overlay, because
-  # NixOS tests and some systems use a read-only package set.
-  secilc = pkgs.secilc or (pkgs.callPackage ../../../../pkgs/secilc { });
 in
 {
   config = lib.mkIf cfg.enable {
@@ -55,7 +51,7 @@ in
       pkgs.setools
       pkgs.selinux-python # audit2allow, audit2why
       pkgs.checkpolicy
-      secilc
+      pkgs.secilc
     ];
 
     # Sessions start in the context the policy maps the user to, instead

@@ -1,6 +1,5 @@
 # Labels and Nix store maintenance: optimisation (hard links between
 # identical files), garbage collection and store verification.
-{ selinuxModule }:
 {
   name = "selinux-store-maintenance";
 
@@ -8,7 +7,6 @@
     { ... }:
     {
       imports = [
-        selinuxModule
         ./ext4-nix.nix
       ];
 

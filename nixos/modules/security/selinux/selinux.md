@@ -1,8 +1,10 @@
-# SELinux on NixOS: user manual
+# SELinux {#module-security-selinux}
 
-This chapter describes how to use the `security.selinux` module. How it works and why is in [design.md](design.md).
+The `security.selinux` module runs NixOS with SELinux: it loads a policy at boot, labels the Nix store and the rest of the filesystem, and keeps both in step with the system generation. Nix itself is not changed.
 
-## Enabling
+The module is experimental.
+
+## Enabling {#module-security-selinux-enabling}
 
 Start in permissive mode. Nothing is blocked; what would be blocked is logged.
 
@@ -20,7 +22,7 @@ Rebuild and reboot. The first boot labels the whole Nix store, which takes time 
 
 Check the result:
 
-```console
+```ShellSession
 $ sestatus
 $ ps -eZ | head
 $ journalctl -b | grep 'avc:  denied'
@@ -28,14 +30,14 @@ $ journalctl -b | grep 'avc:  denied'
 
 When a normal session of work produces no denials, switch to `mode = "enforcing"`.
 
-## Policy types
+## Policy types {#module-security-selinux-policy-types}
 
 | `type` | What it is | Use it for |
 |---|---|---|
 | `minimal` (default) | A small policy written for NixOS. Everything is unconfined except domains you add as CIL modules. | Trying the mechanism, or confining a few services of your own. |
 | `refpolicy` | The SELinux reference policy with a NixOS module. | Running system services in the domains the reference policy has for them. Experimental. |
 
-## What is confined
+## What is confined {#module-security-selinux-confined}
 
 With `refpolicy`, these run in the reference policy's domains without further configuration: systemd's helper daemons (journald, udev, logind and others), D-Bus, and, through `security.selinux.confine`:
 
@@ -48,13 +50,13 @@ With `refpolicy`, these run in the reference policy's domains without further co
 
 Every other service runs unconfined, as with a targeted policy on other distributions. Users log in unconfined by default; `security.selinux.loginMappings` maps login names to SELinux users.
 
-### Confined builds
+### Confined builds {#module-security-selinux-confined-builds}
 
 With `confine.nixBuilds = true` a build may write only its outputs and its build directory, may not read the password database, and may not signal or trace processes outside the build. This is in addition to the Nix sandbox.
 
 Every program the daemon starts enters this domain. A `post-build-hook` and the `ssh` client used for remote builders therefore run confined and will lack access they need. Leave the option off if you use either. Builds with the sandbox disabled are not supported with it.
 
-## Labels in the Nix store
+## Labels in the Nix store {#module-security-selinux-store-labels}
 
 The store is labelled by rules that match path patterns: programs get `bin_t`, libraries `lib_t`, and so on. These types carry no privilege, because any user can build a store path that matches a pattern.
 
@@ -75,7 +77,7 @@ A type that carries privilege, such as the entry point of a domain, is given onl
 
 A path built or downloaded after boot has the generic store type until the next boot, switch or run of `/run/current-system/selinux-setup`. Unconfined users can run it in the meantime.
 
-## Adding policy
+## Adding policy {#module-security-selinux-adding-policy}
 
 With `minimal`, add CIL fragments. A fragment that does not compile fails the system build and the error names it.
 
@@ -111,9 +113,9 @@ systemd then starts the service in `myservice_t`, where it may do only what the 
 
 The policy is part of the system closure. There is no mutable policy store: `semodule` and `setsebool -P` have nothing to write to. A change to the policy is a change to the configuration, and it switches and rolls back with the system generation.
 
-## Finding out what is denied
+## Finding out what is denied {#module-security-selinux-denials}
 
-```console
+```ShellSession
 $ journalctl -b | grep 'avc:  denied'
 ```
 
@@ -121,17 +123,17 @@ This shows denials from the kernel and from systemd, which checks some requests 
 
 `security.selinux.developmentTools = true` installs `sesearch`, `audit2allow` and related tools.
 
-## Store optimisation
+## Store optimisation {#module-security-selinux-store-optimisation}
 
 `nix-store --optimise` links identical files in different store paths to one inode, and one inode has one label. A program with a specific type can lose it this way. The module restores such labels at boot, at switch, and after the scheduled optimisation (`nix.optimise.automatic`). After running the optimiser by hand, run:
 
-```console
+```ShellSession
 # /run/current-system/selinux-setup
 ```
 
 Do not use `nix.settings.auto-optimise-store` with SELinux; the module warns about it. Confined services name their domain in their unit, so a service whose program has lost its label fails to start instead of running unconfined.
 
-## Recovery
+## Recovery {#module-security-selinux-recovery}
 
 If an enforcing system does not boot or cannot be logged in to:
 
@@ -143,9 +145,8 @@ In enforcing mode the system refuses to boot if the policy cannot be loaded or t
 
 Options 2 and 3 are covered by the `selinux-recovery` test. A `nixos-rebuild switch` during a permissive rescue boot applies the configured mode again, so the system becomes enforcing at that point if the configuration says so.
 
-## Limits
+## Limits {#module-security-selinux-limits}
 
 - Not compatible with `security.apparmor.enable` or `system.nixos-init.enable` in this version.
-- Not yet tried on a real machine or on an ephemeral root filesystem.
+- Not yet tried on a real machine.
 - D-Bus does not mediate messages by SELinux context.
-- See [design.md](design.md) for the full list.

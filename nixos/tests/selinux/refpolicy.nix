@@ -5,7 +5,6 @@
 # only prints the denials. That variant is a development tool: it shows
 # everything a policy change breaks in one run.
 {
-  selinuxModule,
   enforcing ? true,
 }:
 {
@@ -28,7 +27,6 @@
     in
     {
       imports = [
-        selinuxModule
         ./ext4-nix.nix
       ];
 

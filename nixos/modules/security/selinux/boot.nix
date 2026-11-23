@@ -9,7 +9,7 @@
 let
   cfg = config.security.selinux;
 
-  setupTool = pkgs.callPackage ../../../../pkgs/nixos-selinux-setup { };
+  setupTool = pkgs.callPackage ./setup { };
 
   # Identifies the exact-path rules, so the store paths they apply to are
   # relabelled when those rules change and not otherwise.

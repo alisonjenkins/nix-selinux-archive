@@ -90,14 +90,14 @@
 
 ## Phase 7: Hardening (M4, outline)
 
-- [ ] T046 Ephemeral root filesystems, large closures, interrupted labelling, store maintenance during use: one test or documented limit for each edge case in the spec
+- [x] T046 Ephemeral root filesystems, large closures, interrupted labelling, store maintenance during use: one test or documented limit for each edge case in the spec (`ephemeral-root.nix`, `measure.nix`, `store-maintenance.nix`; interrupted labelling repeats because markers are written last)
 - [x] T047 Tune labelling until SC-005 is met (known cost: any change to file context rules, even one outside the store, relabels the whole store at switch; the revision should cover store rules only)
 
 ## Phase 8: User Story 5 - Upstream package (Priority: P2) (M5, outline)
 
 - [x] T048 [US5] Finish `docs/design.md` with the threat model and the answers to each recorded objection
 - [x] T049 [US5] Write the user manual chapter in `docs/manual.md` (`docs/manual.md`)
-- [ ] T050 [US5] Split the work into an ordered patch series against nixpkgs, each default-off with its test, starting with the smallest (kernel support and `secilc`)
+- [x] T050 [US5] Split the work into an ordered patch series against nixpkgs, each default-off with its test, starting with the smallest (kernel support and `secilc`) (`upstream/make-series.py`; four commits, checked against the locked nixpkgs revision)
 - [ ] T051 [US5] Have someone uninvolved reproduce M1 and M2 from the documentation (SC-008)
 - [ ] T052 [US5] With Alison's go-ahead, open the upstream discussion and the first pull request
 

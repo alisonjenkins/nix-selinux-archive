@@ -1,6 +1,5 @@
 # Enforcing mode with the minimal policy: the system boots and behaves
 # normally, and a service placed in a confined domain is really blocked.
-{ selinuxModule }:
 {
   name = "selinux-enforcing";
 
@@ -8,7 +7,6 @@
     { pkgs, ... }:
     {
       imports = [
-        selinuxModule
         ./ext4-nix.nix
       ];
 

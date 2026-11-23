@@ -1,11 +1,9 @@
 # The two ways out of an enforcing system that does not work, as they
 # would be typed into a boot loader entry: boot permissive once with
 # `enforcing=0`, or boot without SELinux by leaving it out of `lsm=`.
-{ selinuxModule }:
 let
   enforcingSystem = {
     imports = [
-      selinuxModule
       ./ext4-nix.nix
     ];
 
