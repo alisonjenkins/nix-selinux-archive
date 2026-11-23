@@ -2,7 +2,7 @@
 
 A prototype of SELinux support for NixOS, developed with the aim of contributing it to nixpkgs.
 
-**Status**: prototype. In VM tests a NixOS system boots in permissive and in enforcing mode with a small unconfined-by-default policy, a fully labelled store, working SSH and Nix builds, and one confined demo service whose forbidden access is denied. It has not been tried on a real machine and the policy is not yet a hardening policy.
+**Status**: prototype. In VM tests a NixOS system boots in permissive and in enforcing mode with a fully labelled store, working SSH and Nix builds, switch and rollback between policies, and one confined demo service whose forbidden access is denied. Two policies are available: a small one written for NixOS (`minimal`, the default) and the SELinux reference policy with a NixOS module (`refpolicy`, experimental). Both leave services unconfined unless told otherwise, so this is a working base and not yet a hardening policy. It has not been tried on a real machine.
 
 ## Approach
 
