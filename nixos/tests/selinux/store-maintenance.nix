@@ -125,6 +125,10 @@
         program = auto.succeed("readlink -f /run/current-system/systemd/lib/systemd/systemd").strip()
         expected = "system_u:object_r:init_exec_t:s0"
         assert auto.succeed(f"stat -c %C {program}").strip() == expected
+        # Nix links a new file only to files the optimiser has seen, so
+        # optimise once first. That alone may replace the program's inode.
+        auto.succeed("nix-store --optimise >&2")
+        auto.wait_until_succeeds(f"test $(stat -c %C {program}) = {expected}", timeout=30)
         auto.succeed(
             "mkdir -p /tmp/forged/lib/systemd",
             f"cp {program} /tmp/forged/lib/systemd/systemd",
@@ -132,8 +136,7 @@
         )
         forged = auto.succeed("nix-store --add /tmp/forged").strip()
         assert auto.succeed(f"stat -c %i {forged}/lib/systemd/systemd") == auto.succeed(f"stat -c %i {program}"), "not linked"
-        auto.succeed("nix-store --optimise >&2")
-        auto.wait_until_succeeds(f"test $(stat -c %C {program}) = {expected}", timeout=30)
+        assert auto.succeed(f"stat -c %C {program}").strip() == expected
         auto.reboot()
         auto.wait_for_unit("multi-user.target")
         assert auto.succeed(f"stat -c %C {program}").strip() == expected
