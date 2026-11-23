@@ -362,6 +362,7 @@ manage_dirs_pattern(dhcpc_t, net_conf_t, net_conf_t)
 manage_files_pattern(dhcpc_t, net_conf_t, net_conf_t)
 init_start_generic_units(dhcpc_t)
 init_get_generic_units_status(dhcpc_t)
+init_dbus_chat(dhcpc_t)
 
 # systemd passes credentials to the login prompt in a directory on a
 # tmpfs under /run/credentials.

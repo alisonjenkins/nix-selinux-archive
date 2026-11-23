@@ -80,7 +80,7 @@ The option is off by default because the transition applies to everything the da
 
 ### Userland
 
-systemd, coreutils, PAM and OpenSSH are rebuilt with SELinux support through their NixOS package options, so nothing else in nixpkgs is rebuilt. Console logins use `pam_selinux`; OpenSSH sets the session context itself.
+systemd, coreutils, PAM, OpenSSH and the D-Bus broker are rebuilt with SELinux support through their NixOS package options, so nothing else in nixpkgs is rebuilt. The broker then checks each message and each name request against the policy. Console logins use `pam_selinux`; OpenSSH sets the session context itself.
 
 Setuid wrappers keep a generic type. The program a wrapper executes carries the specific type, for example `unix_chkpwd`.
 
@@ -145,7 +145,6 @@ The first boot of the desktop closure took 17.6 s in total and an unchanged boot
 - **The whole store is labelled, not only the system closure.** This is simpler and covers user profiles, at the cost of a longer first pass.
 - **Paths built at run time carry the generic store type** until the next labelling run. Unconfined users can run them; a confined domain cannot.
 - **Confined builds are opt-in** and do not yet distinguish builders from hooks and the remote-build `ssh` client. A build may write any store file that still has the generic type, where file permissions allow it.
-- **D-Bus is not built with SELinux support**, so it does not mediate messages by context.
 - **Password logins over SSH and `sudo` role changes are not tested.**
 - **`system.nixos-init.enable` is not supported**: the policy is loaded by a unit ordered before the scripted activation unit in the initrd.
 - **Boot-loader rollback** into an older generation is not tested, only `switch-to-configuration`.
