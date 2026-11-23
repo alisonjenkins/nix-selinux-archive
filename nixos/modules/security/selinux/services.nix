@@ -30,17 +30,76 @@ in
         domain. Confined programs resolve users and hosts through it.
       '';
     };
+
+    nix = lib.mkOption {
+      type = lib.types.bool;
+      default = refpolicy;
+      defaultText = lib.literalExpression ''config.security.selinux.type == "refpolicy"'';
+      description = ''
+        Run the Nix daemon in its own domain, `nix_daemon_t`. The domain
+        is not restricted: the daemon manages the store as root. It is
+        what {option}`security.selinux.confine.nixBuilds` builds on.
+      '';
+    };
+
+    nixBuilds = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Run the builders the Nix daemon starts in the confined domain
+        `nix_build_t`. A build may write only its outputs and its build
+        directory, may not read the password database, and may not
+        signal or trace other processes, in addition to the isolation
+        Nix itself provides.
+
+        Every program the daemon starts enters this domain, including a
+        `post-build-hook` and the `ssh` client used for remote builders,
+        which then lack access they need. Builds without the sandbox are
+        not supported with this option.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = (cfg.confine.sshd || cfg.confine.nscd) -> refpolicy;
+        assertion = cfg.confine.nixBuilds -> cfg.confine.nix;
+        message = "security.selinux.confine.nixBuilds needs security.selinux.confine.nix.";
+      }
+      {
+        assertion = (cfg.confine.sshd || cfg.confine.nscd || cfg.confine.nix) -> refpolicy;
         message = "security.selinux.confine.* needs security.selinux.type = \"refpolicy\".";
       }
     ];
 
+    # Name the domain in the unit as well. The label on the program is
+    # then necessary but not sufficient: if it is ever missing, the
+    # service fails to start instead of running unconfined.
+    systemd.services = {
+      sshd = lib.mkIf (cfg.confine.sshd && config.services.openssh.enable) {
+        serviceConfig.SELinuxContext = "system_u:system_r:sshd_t:s0";
+      };
+      nscd = lib.mkIf (cfg.confine.nscd && config.services.nscd.enable) {
+        serviceConfig.SELinuxContext = "system_u:system_r:nscd_t:s0";
+      };
+      nix-daemon = lib.mkIf (cfg.confine.nix && config.nix.enable) {
+        serviceConfig.SELinuxContext = "system_u:system_r:nix_daemon_t:s0";
+      };
+    };
+
+    security.selinux.booleans = lib.mkIf refpolicy {
+      nix_confine_builds = cfg.confine.nixBuilds;
+    };
+
     security.selinux.entrypoints = lib.mkMerge [
+      # The programs of the nix package are links to one file, which this
+      # names through the link the daemon's unit starts.
+      (lib.mkIf (cfg.confine.nix && config.nix.enable) {
+        nix = {
+          path = "${config.nix.package}/bin/nix";
+          type = "nix_exec_t";
+        };
+      })
       (lib.mkIf (cfg.confine.sshd && config.services.openssh.enable) (
         lib.genAttrs' [ "bin/sshd" "libexec/sshd-session" "libexec/sshd-auth" ] (
           file:

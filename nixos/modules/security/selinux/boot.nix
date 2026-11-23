@@ -16,6 +16,8 @@ let
   exactRevision = builtins.substring 0 32 (
     builtins.hashString "sha256" (
       lib.concatMapStrings (e: "${toString e.path}=${e.type}\n") (lib.attrValues cfg.entrypoints)
+      # Rules the policy derives itself change only when the policy does.
+      + builtins.unsafeDiscardStringContext (toString cfg.policy)
     )
   );
 
@@ -28,11 +30,7 @@ let
       --spec ${cfg.policy}/contexts/files/file_contexts \
       --rev ${cfg.labelRevision} \
       --exact-rev ${exactRevision} \
-      ${
-        lib.concatMapStringsSep " " (e: "--exact ${lib.escapeShellArg (toString e.path)}") (
-          lib.attrValues cfg.entrypoints
-        )
-      } \
+      --exact-file ${cfg.policy}/nixos/exact-paths \
       ${lib.concatMapStringsSep " " (p: "--relabel ${lib.escapeShellArg p}") cfg.relabelPaths} \
       "$@"
   '';
@@ -110,32 +108,51 @@ in
 
     # After activation: restore labels on the mutable paths if the rules
     # changed. On first boot this covers what activation just created.
-    systemd.services.selinux-relabel = {
-      description = "Restore SELinux Labels on Mutable Paths";
-      unitConfig = {
-        DefaultDependencies = false;
-        ConditionSecurity = "selinux";
+    systemd.services = {
+      selinux-relabel = {
+        description = "Restore SELinux Labels on Mutable Paths";
+        unitConfig = {
+          DefaultDependencies = false;
+          ConditionSecurity = "selinux";
+        };
+        wantedBy = [ "sysinit.target" ];
+        after = [ "local-fs.target" ];
+        before = [
+          "sysinit.target"
+          "shutdown.target"
+          # These create and adjust files under the paths being relabelled.
+          "systemd-tmpfiles-setup.service"
+          "systemd-journal-flush.service"
+        ];
+        conflicts = [ "shutdown.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+          ExecStart = "${setup} --relabel-mutable";
+        };
       };
-      wantedBy = [ "sysinit.target" ];
-      after = [ "local-fs.target" ];
-      before = [
-        "sysinit.target"
-        "shutdown.target"
+
+      # Store optimisation replaces identical files with hard links to one
+      # inode, and may keep the inode of an unlabelled copy. Put exact
+      # labels back as soon as the scheduled optimisation finishes.
+      nix-optimise = lib.mkIf config.nix.optimise.automatic {
+        serviceConfig.ExecStartPost = [ "${setup}" ];
+      };
+
+      # The setuid wrappers are created at boot on their own tmpfs, where
+      # new files get the filesystem's default type. Give them their
+      # proper labels as soon as they exist.
+      suid-sgid-wrappers.serviceConfig.ExecStartPost = [
+        "-${lib.getExe' pkgs.policycoreutils "restorecon"} -RF ${dirOf config.security.wrapperDir}"
       ];
-      conflicts = [ "shutdown.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        ExecStart = "${setup} --relabel-mutable";
-      };
     };
 
-    # The setuid wrappers are created at boot on their own tmpfs, where
-    # new files get the filesystem's default type. Give them their
-    # proper labels as soon as they exist.
-    systemd.services.suid-sgid-wrappers.serviceConfig.ExecStartPost = [
-      "-${lib.getExe' pkgs.policycoreutils "restorecon"} -RF ${dirOf config.security.wrapperDir}"
-    ];
+    warnings = lib.optional (config.nix.settings.auto-optimise-store or false) ''
+      security.selinux: nix.settings.auto-optimise-store links identical
+      files as they are added to the store. A file that carries a specific
+      SELinux type can lose it that way until the next boot or switch.
+      Prefer nix.optimise.automatic, after which labels are restored.
+    '';
 
     # On switch: load the new generation's policy, apply its mode, and label
     # store paths that arrived with it, before any of its services start.

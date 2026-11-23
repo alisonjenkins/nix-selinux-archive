@@ -13,13 +13,41 @@ let
   # Rules that name one exact store path. The hash in the path cannot be
   # chosen by whoever builds a package, so only content the system
   # configuration designates can receive these types.
-  exactRules = lib.concatStrings (
-    lib.unique (
-      map (e: "${lib.escapeRegex (toString e.path)}\t--\tsystem_u:object_r:${e.type}:s0\n") (
-        lib.attrValues cfg.entrypoints
-      )
-    )
-  );
+  #
+  # A label belongs to a file, not to a name. Where a configured path is
+  # a symbolic link (the `nix` package's programs link into another store
+  # path), the rule is written for the file the link leads to.
+  exactRules =
+    pkgs.runCommand "selinux-exact-rules"
+      {
+        entrypoints = lib.concatStrings (
+          lib.unique (map (e: "${toString e.path}\t${e.type}\n") (lib.attrValues cfg.entrypoints))
+        );
+        passAsFile = [ "entrypoints" ];
+      }
+      ''
+        mkdir $out
+        : > rules
+        : > paths
+        while IFS=$'\t' read -r path type; do
+          real=$(realpath -e "$path") || { echo "security.selinux.entrypoints: $path does not exist" >&2; exit 1; }
+          case $real in
+            /nix/store/*) ;;
+            *) echo "security.selinux.entrypoints: $path is not in the Nix store" >&2; exit 1 ;;
+          esac
+          [ -f "$real" ] || { echo "security.selinux.entrypoints: $path is not a regular file" >&2; exit 1; }
+          printf '%s\t--\tsystem_u:object_r:%s:s0\n' \
+            "$(printf '%s' "$real" | sed 's/[][\.*+?(){}|^$]/\\&/g')" "$type" >> rules
+          echo "$real" >> paths
+        done < "$entrypointsPath"
+        sort -u rules > $out/rules
+        sort -u paths > $out/paths
+        if [ "$(cut -f1 $out/rules | uniq -d | wc -l)" != 0 ]; then
+          echo "security.selinux.entrypoints gives one file two types:" >&2
+          cut -f1 $out/rules | uniq -d >&2
+          exit 1
+        fi
+      '';
 
   genericFileContexts =
     (
@@ -115,6 +143,49 @@ in
       '';
     };
 
+    fhsLabelledPackages = lib.mkOption {
+      type = lib.types.listOf lib.types.package;
+      default = lib.optionals (cfg.type == "refpolicy") (
+        [ config.systemd.package ]
+        ++ lib.optionals config.services.dbus.enable [
+          config.services.dbus.dbusPackage
+          config.services.dbus.brokerPackage
+        ]
+      );
+      defaultText = lib.literalMD "systemd and D-Bus with the `refpolicy` policy type, otherwise empty";
+      description = ''
+        Packages whose programs get the types the reference policy gives
+        the same programs at their usual locations under {file}`/usr`.
+        Each one is named by its exact store path, so the service it
+        belongs to enters the domain the policy has for it. Used by the
+        `refpolicy` policy type.
+      '';
+    };
+
+    logAllDenials = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Remove the policy's `dontaudit` rules, so that denials the policy
+        normally hides are logged too. For policy development: a hidden
+        denial still denies in enforcing mode. Used by the `refpolicy`
+        policy type.
+      '';
+    };
+
+    booleans = lib.mkOption {
+      type = lib.types.attrsOf lib.types.bool;
+      default = { };
+      example = {
+        ssh_sysadm_login = true;
+      };
+      description = ''
+        Values of policy booleans and tunables, built into the policy. A
+        name the policy does not have fails the build. Used by the
+        `refpolicy` policy type.
+      '';
+    };
+
     labelRevision = lib.mkOption {
       type = lib.types.str;
       internal = true;
@@ -127,6 +198,14 @@ in
 
   config = lib.mkIf cfg.enable {
     security.selinux = {
+      # NixOS describes much of the filesystem layout as tmpfiles rules:
+      # the dynamic loader stub in /lib64, root's channel list, state
+      # directories of services. Let systemd-tmpfiles manage any file
+      # that is not security-sensitive, as the policy offers.
+      booleans = lib.mkIf (cfg.type == "refpolicy") {
+        systemd_tmpfiles_manage_all = lib.mkDefault true;
+      };
+
       policy = lib.mkDefault (
         if cfg.type == "refpolicy" then
           assert lib.assertMsg (cfg.modules == { }) ''
@@ -136,7 +215,11 @@ in
           pkgs.callPackage ../../../../pkgs/selinux-policy-refpolicy {
             name = cfg.type;
             policyVersion = if cfg.policyVersion != null then cfg.policyVersion else 33;
-            extraFileContexts = cfg.fileContexts + exactRules;
+            extraFileContexts = cfg.fileContexts;
+            inherit exactRules;
+            fhsPackages = cfg.fhsLabelledPackages;
+            inherit (cfg) booleans;
+            dontaudit = !cfg.logAllDenials;
             seusers = lib.concatStrings (
               lib.mapAttrsToList (login: m: "${login}:${m.user}:${m.range}\n") cfg.loginMappings
             );
@@ -147,7 +230,8 @@ in
             name = cfg.type;
             policyVersion = if cfg.policyVersion != null then cfg.policyVersion else 33;
             extraCil = lib.mapAttrsToList (name: module: pkgs.writeText "${name}.cil" module.cil) cfg.modules;
-            extraFileContexts = cfg.fileContexts + exactRules;
+            extraFileContexts = cfg.fileContexts;
+            inherit exactRules;
           }
       );
 

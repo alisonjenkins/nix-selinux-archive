@@ -48,10 +48,13 @@
             fileset = lib.fileset.fileFilter (file: file.hasExt "nix") ./.;
           };
           evalChecks = lib.mapAttrs' (name: lib.nameValuePair "selinux-eval-${name}") (
-            pkgs.callPackage ./nixos/tests/selinux/eval.nix {
-              inherit (lib) nixosSystem;
-              selinuxModule = self.nixosModules.selinux;
-            }
+            # callPackage adds override functions, which are not checks.
+            lib.filterAttrs (_: lib.isDerivation) (
+              pkgs.callPackage ./nixos/tests/selinux/eval.nix {
+                inherit (lib) nixosSystem;
+                selinuxModule = self.nixosModules.selinux;
+              }
+            )
           );
         in
         evalChecks
@@ -74,6 +77,10 @@
 
           selinux-refpolicy = pkgs.testers.runNixOSTest (
             import ./nixos/tests/selinux/refpolicy.nix { selinuxModule = self.nixosModules.selinux; }
+          );
+
+          selinux-store-maintenance = pkgs.testers.runNixOSTest (
+            import ./nixos/tests/selinux/store-maintenance.nix { selinuxModule = self.nixosModules.selinux; }
           );
 
           # Not a pass/fail test of the policy: prints what it denies.
