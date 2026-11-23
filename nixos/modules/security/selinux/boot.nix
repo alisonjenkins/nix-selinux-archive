@@ -16,6 +16,8 @@ let
   exactRevision = builtins.substring 0 32 (
     builtins.hashString "sha256" (
       lib.concatMapStrings (e: "${toString e.path}=${e.type}\n") (lib.attrValues cfg.entrypoints)
+      # Rules the policy derives itself change only when the policy does.
+      + builtins.unsafeDiscardStringContext (toString cfg.policy)
     )
   );
 
@@ -28,6 +30,7 @@ let
       --spec ${cfg.policy}/contexts/files/file_contexts \
       --rev ${cfg.labelRevision} \
       --exact-rev ${exactRevision} \
+      --exact-file ${cfg.policy}/nixos/exact-paths \
       ${
         lib.concatMapStringsSep " " (e: "--exact ${lib.escapeShellArg (toString e.path)}") (
           lib.attrValues cfg.entrypoints

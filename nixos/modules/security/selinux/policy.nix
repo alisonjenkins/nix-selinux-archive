@@ -115,6 +115,21 @@ in
       '';
     };
 
+    fhsLabelledPackages = lib.mkOption {
+      type = lib.types.listOf lib.types.package;
+      default = lib.optional (cfg.type == "refpolicy") config.systemd.package;
+      defaultText = lib.literalExpression ''
+        lib.optional (config.security.selinux.type == "refpolicy") config.systemd.package
+      '';
+      description = ''
+        Packages whose programs get the types the reference policy gives
+        the same programs at their usual locations under {file}`/usr`.
+        Each one is named by its exact store path, so the service it
+        belongs to enters the domain the policy has for it. Used by the
+        `refpolicy` policy type.
+      '';
+    };
+
     labelRevision = lib.mkOption {
       type = lib.types.str;
       internal = true;
@@ -137,6 +152,7 @@ in
             name = cfg.type;
             policyVersion = if cfg.policyVersion != null then cfg.policyVersion else 33;
             extraFileContexts = cfg.fileContexts + exactRules;
+            fhsPackages = cfg.fhsLabelledPackages;
             seusers = lib.concatStrings (
               lib.mapAttrsToList (login: m: "${login}:${m.user}:${m.range}\n") cfg.loginMappings
             );

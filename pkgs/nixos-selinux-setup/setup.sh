@@ -21,6 +21,7 @@ policy=
 spec=
 rev=
 exact_rev=
+exact_file=
 remounted=
 relabel_mutable=
 exact=()
@@ -33,6 +34,7 @@ while [ $# -gt 0 ]; do
     --rev) rev=$2; shift 2 ;;
     --exact-rev) exact_rev=$2; shift 2 ;;
     --exact) exact+=("$2"); shift 2 ;;
+    --exact-file) exact_file=$2; shift 2 ;;
     --relabel) relabel+=("$2"); shift 2 ;;
     --remounted) remounted=1; shift ;;
     --relabel-mutable) relabel_mutable=1; shift ;;
@@ -125,6 +127,12 @@ for path in "${exact[@]}"; do
   root=$(echo "$path" | cut -d/ -f1-4)
   if [ -e "$root" ]; then echo "$root" >> "$work/exact"; fi
 done
+if [ -n "$exact_file" ] && [ -e "$exact_file" ]; then
+  while IFS= read -r path; do
+    root=$(echo "$path" | cut -d/ -f1-4)
+    if [ -e "$root" ]; then echo "$root" >> "$work/exact"; fi
+  done < "$exact_file"
+fi
 sort -u -o "$work/exact" "$work/exact"
 
 # Store paths already labelled under the current rules carry a marker on
