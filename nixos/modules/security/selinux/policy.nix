@@ -119,7 +119,10 @@ in
       type = lib.types.listOf lib.types.package;
       default = lib.optionals (cfg.type == "refpolicy") (
         [ config.systemd.package ]
-        ++ lib.optional config.services.dbus.enable config.services.dbus.dbusPackage
+        ++ lib.optionals config.services.dbus.enable [
+          config.services.dbus.dbusPackage
+          config.services.dbus.brokerPackage
+        ]
       );
       defaultText = lib.literalMD "systemd and D-Bus with the `refpolicy` policy type, otherwise empty";
       description = ''
@@ -127,6 +130,19 @@ in
         the same programs at their usual locations under {file}`/usr`.
         Each one is named by its exact store path, so the service it
         belongs to enters the domain the policy has for it. Used by the
+        `refpolicy` policy type.
+      '';
+    };
+
+    booleans = lib.mkOption {
+      type = lib.types.attrsOf lib.types.bool;
+      default = { };
+      example = {
+        ssh_sysadm_login = true;
+      };
+      description = ''
+        Values of policy booleans and tunables, built into the policy. A
+        name the policy does not have fails the build. Used by the
         `refpolicy` policy type.
       '';
     };
@@ -143,6 +159,14 @@ in
 
   config = lib.mkIf cfg.enable {
     security.selinux = {
+      # NixOS describes much of the filesystem layout as tmpfiles rules:
+      # the dynamic loader stub in /lib64, root's channel list, state
+      # directories of services. Let systemd-tmpfiles manage any file
+      # that is not security-sensitive, as the policy offers.
+      booleans = lib.mkIf (cfg.type == "refpolicy") {
+        systemd_tmpfiles_manage_all = lib.mkDefault true;
+      };
+
       policy = lib.mkDefault (
         if cfg.type == "refpolicy" then
           assert lib.assertMsg (cfg.modules == { }) ''
@@ -154,6 +178,7 @@ in
             policyVersion = if cfg.policyVersion != null then cfg.policyVersion else 33;
             extraFileContexts = cfg.fileContexts + exactRules;
             fhsPackages = cfg.fhsLabelledPackages;
+            inherit (cfg) booleans;
             seusers = lib.concatStrings (
               lib.mapAttrsToList (login: m: "${login}:${m.user}:${m.range}\n") cfg.loginMappings
             );

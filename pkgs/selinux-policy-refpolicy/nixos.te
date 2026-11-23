@@ -111,6 +111,7 @@ gen_require(`
 	type fs_t;
 	type init_runtime_t;
 	type kernel_t;
+	type lib_t;
 	type nsfs_t;
 	type ramfs_t;
 	type syslogd_t;
@@ -172,13 +173,8 @@ allow systemd_tmpfiles_t nix_var_t:dir manage_dir_perms;
 allow systemd_tmpfiles_t nix_var_t:file manage_file_perms;
 allow systemd_tmpfiles_t nix_var_t:lnk_file manage_lnk_file_perms;
 allow systemd_tmpfiles_t ramfs_t:dir { getattr search setattr };
-optional_policy(`
-	gen_require(`
-		type user_home_t;
-	')
-
-	allow systemd_tmpfiles_t user_home_t:file getattr;
-')
+# The dynamic loader stub NixOS installs in /lib64 is a symlink.
+allow systemd_tmpfiles_t lib_t:lnk_file manage_lnk_file_perms;
 
 allow systemd_machine_id_setup_t self:process getcap;
 allow systemd_machine_id_setup_t { fs_t nsfs_t }:filesystem getattr;

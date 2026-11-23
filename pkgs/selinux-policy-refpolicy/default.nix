@@ -11,6 +11,8 @@
   # Packages whose programs get the types the reference policy gives the
   # same programs at their usual FHS locations.
   fhsPackages ? [ ],
+  # Default values of policy booleans and tunables, by name.
+  booleans ? { },
   # Contents of the seusers file; null keeps the reference policy's own.
   seusers ? null,
 }:
@@ -24,6 +26,18 @@
     cp ${./nixos.if} policy/modules/nixos/nixos.if
     echo '<summary>NixOS-specific policy.</summary>' > policy/modules/nixos/metadata.xml
   '';
+
+  # `make conf` writes the defaults; change the ones asked for, and fail
+  # on a name the policy does not have.
+  postConfigure =
+    (old.postConfigure or "")
+    + lib.concatStrings (
+      lib.mapAttrsToList (boolean: value: ''
+        grep -q '^${boolean} = ' policy/booleans.conf \
+          || { echo "unknown SELinux boolean: ${boolean}" >&2; exit 1; }
+        sed -i 's/^${boolean} = .*/${boolean} = ${lib.boolToString value}/' policy/booleans.conf
+      '') booleans
+    );
 
   makeFlags = old.makeFlags ++ [
     "MONOLITHIC=y"
