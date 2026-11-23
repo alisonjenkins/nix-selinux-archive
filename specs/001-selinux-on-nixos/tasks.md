@@ -59,7 +59,7 @@
 
 ### Measurements and open questions for User Story 1
 
-- [ ] T029 [P] [US1] Measure labelling time and boot time added, first boot and unchanged boot, for the minimal closure and a larger server closure; record against SC-005 in `docs/design.md`
+- [x] T029 [P] [US1] Measure labelling time and boot time added, first boot and unchanged boot, for the minimal closure and a larger server closure; record against SC-005 in `docs/design.md`
 - [x] T030 [P] [US1] Test whether labels survive `nix-store --optimise`, `nix-store --verify --repair`, and garbage collection followed by re-substitution; record results
 - [x] T031 [P] [US1] Test what a shared (hardlinked) file's label is when two paths map to different types, and decide the version 1 rule for store optimisation
 - [ ] T032 [US1] Write the M1 section of `docs/design.md`: what works, measured numbers, answers to research.md questions 1 to 4, and what remains unknown
