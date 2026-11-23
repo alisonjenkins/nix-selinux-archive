@@ -62,7 +62,6 @@
         pid1 = machine.succeed("cat /proc/1/attr/current").strip("\x00\n ")
         assert pid1 == "system_u:system_r:init_t:s0", pid1
         print(machine.succeed("ps -eo label,comm | sort | uniq -c | sort -rn"))
-        print(machine.succeed("xargs -r ls -Z < /etc/selinux/refpolicy/nixos/exact-paths | grep -v systemd_generator | head -150"))
 
     with subtest("store content carries reference policy types"):
         assert label("/run/current-system/systemd/lib/systemd/systemd") == "system_u:object_r:init_exec_t:s0"
@@ -103,8 +102,19 @@
             assert console == "unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023", console
 
     with subtest("confined services run in their domains"):
-        nscd = machine.succeed("ps -o label= -p $(systemctl show -P MainPID nscd.service)").strip()
-        assert nscd == "system_u:system_r:nscd_t:s0", nscd
+        def domain(unit):
+            return machine.succeed(
+                f"ps -o label= -p $(systemctl show -P MainPID {unit})"
+            ).strip().split(":")[2]
+
+        for unit, expected in {
+            "nscd.service": "nscd_t",
+            "systemd-journald.service": "syslogd_t",
+            "systemd-logind.service": "systemd_logind_t",
+            "systemd-udevd.service": "udev_t",
+            "dbus.service": "system_dbusd_t",
+        }.items():
+            assert domain(unit) == expected, (unit, domain(unit))
         # What confinement buys: unlike an unconfined service, sshd may
         # not read the shadow file or load a kernel module.
         for rule in [

@@ -58,12 +58,6 @@ optional_policy(`
 	unconfined_domain(initrc_t)
 ')
 
-# systemd's helper daemons live under lib/systemd and carry a generic
-# library type, so they stay in the init domain instead of entering
-# their own. logind starts session scopes from there. Giving the helpers
-# their reference policy domains by exact store path is future work.
-allow init_t self:system { disable enable start stop };
-
 # Login programs (login, sshd) carry generic types too and run in the
 # generic service domain, so that domain starts user sessions and must
 # be able to change the SELinux user and role when it does.
