@@ -34,6 +34,8 @@ runCommand "selinux-policy-${name}"
     passthru = {
       inherit policyVersion;
       policyName = name;
+      # The generic labelling rules, for the NixOS module to hash.
+      fileContexts = ./file_contexts;
     };
     meta = {
       description = "Minimal SELinux policy for NixOS";
@@ -49,10 +51,10 @@ runCommand "selinux-policy-${name}"
 
     # A failure here names the file and line of the offending fragment.
     secilc -c ${toString policyVersion} -o "$policy" -f /dev/null \
-      flask.cil ${../../policy/minimal/base.cil} $extraCil
+      flask.cil ${./base.cil} $extraCil
 
     mkdir -p $out/nixos
-    cat ${../../policy/minimal/file_contexts} "$extraFileContextsPath" \
+    cat ${./file_contexts} "$extraFileContextsPath" \
       ${lib.optionalString (exactRules != null) "${exactRules}/rules"} \
       > $out/contexts/files/file_contexts
     cat ${if exactRules != null then "${exactRules}/paths" else "/dev/null"} > $out/nixos/exact-paths

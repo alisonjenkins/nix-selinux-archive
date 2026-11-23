@@ -19,9 +19,11 @@ A prototype of SELinux support for NixOS, developed with the aim of contributing
 | `docs/design.md` | How it works, threat model, test results, open questions |
 | `docs/manual.md` | How to enable and use it, and how to recover |
 | `docs/research/` | Detailed research reports with sources |
-| `nixos/modules/security/selinux/` | The NixOS module (mirrors the nixpkgs path) |
+| `nixos/modules/security/selinux/` | The NixOS module, with the setup tool (`setup/`) and the reference policy build (`refpolicy/`) |
 | `nixos/tests/selinux/` | NixOS VM tests |
-| `pkgs/` | Packages not yet in nixpkgs |
+| `pkgs/by-name/` | Packages not yet in nixpkgs: `secilc` and the minimal policy |
+
+The `nixos/` and `pkgs/` trees have the paths and the contents they would have in nixpkgs, so they can be copied into a nixpkgs checkout unchanged. `flake.nix` supplies what nixpkgs would: the two packages as an overlay, and the module added to every test node.
 
 ## Running the checks
 

@@ -1,6 +1,5 @@
 # Milestone 1: boot in permissive mode with a policy loaded, the store
 # labelled, systemd in its own domain and denials logged.
-{ selinuxModule }:
 {
   name = "selinux-permissive-boot";
 
@@ -8,7 +7,6 @@
     { pkgs, ... }:
     {
       imports = [
-        selinuxModule
         ./ext4-nix.nix
       ];
 

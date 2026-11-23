@@ -2,13 +2,11 @@
 # Nix store kept. Every boot is then a first boot for everything outside
 # the store: directories are created and labelled from nothing, while
 # the store's labels persist.
-{ selinuxModule }:
 let
   ephemeral =
     { lib, ... }:
     {
       imports = [
-        selinuxModule
         ./ext4-nix.nix
       ];
 

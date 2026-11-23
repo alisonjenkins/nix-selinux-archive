@@ -2,7 +2,6 @@
 # closure the size of a desktop installation. Prints the size of the
 # store, the time the labelling pass takes on the first boot and on an
 # unchanged boot, and what systemd-analyze reports for each.
-{ selinuxModule }:
 {
   name = "selinux-measure-desktop";
 
@@ -10,7 +9,6 @@
     { pkgs, ... }:
     {
       imports = [
-        selinuxModule
         ./ext4-nix.nix
       ];
 

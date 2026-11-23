@@ -8,8 +8,6 @@
 let
   cfg = config.security.selinux;
 
-  secilc = pkgs.secilc or (pkgs.callPackage ../../../../pkgs/secilc { });
-
   # Rules that name one exact store path. The hash in the path cannot be
   # chosen by whoever builds a package, so only content the system
   # configuration designates can receive these types.
@@ -52,10 +50,9 @@ let
   genericFileContexts =
     (
       if cfg.type == "refpolicy" then
-        pkgs.selinux-refpolicy.version
-        + builtins.readFile ../../../../pkgs/selinux-policy-refpolicy/nixos.fc
+        pkgs.selinux-refpolicy.version + builtins.readFile ./refpolicy/nixos.fc
       else
-        builtins.readFile ../../../../policy/minimal/file_contexts
+        builtins.readFile pkgs.selinux-policy-minimal.fileContexts
     )
     + cfg.fileContexts;
 
@@ -257,7 +254,7 @@ in
             type. With refpolicy, write the module in
             security.selinux.modules.<name>.te.
           '';
-          pkgs.callPackage ../../../../pkgs/selinux-policy-refpolicy {
+          pkgs.callPackage ./refpolicy {
             name = cfg.type;
             policyVersion = if cfg.policyVersion != null then cfg.policyVersion else 33;
             extraFileContexts = cfg.fileContexts;
@@ -276,8 +273,7 @@ in
             refpolicy policy type. With the minimal policy, write the
             module in security.selinux.modules.<name>.cil.
           '';
-          pkgs.callPackage ../../../../pkgs/selinux-policy-minimal {
-            inherit secilc;
+          pkgs.selinux-policy-minimal.override {
             name = cfg.type;
             policyVersion = if cfg.policyVersion != null then cfg.policyVersion else 33;
             extraCil = lib.mapAttrsToList (name: module: pkgs.writeText "${name}.cil" module.cil) cfg.modules;

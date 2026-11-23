@@ -20,27 +20,39 @@
           inherit system;
           overlays = [ self.overlays.default ];
         };
+
+      # A VM test written as it would be in nixpkgs, where the module is
+      # part of NixOS. Here it is added to every node. The package set of
+      # the test already has the overlay.
+      selinuxTest =
+        pkgs: test:
+        pkgs.testers.runNixOSTest {
+          imports = [ test ];
+          defaults.imports = [ ./nixos/modules/security/selinux ];
+        };
     in
     {
       overlays.default = final: _prev: {
-        secilc = final.callPackage ./pkgs/secilc { };
-        selinux-policy-minimal = final.callPackage ./pkgs/selinux-policy-minimal { };
-        nixos-selinux-setup = final.callPackage ./pkgs/nixos-selinux-setup { };
+        secilc = final.callPackage ./pkgs/by-name/se/secilc/package.nix { };
+        selinux-policy-minimal = final.callPackage ./pkgs/by-name/se/selinux-policy-minimal/package.nix { };
       };
 
+      # The module as it would sit in nixpkgs, plus the two packages it
+      # expects to find there.
       nixosModules = {
-        selinux = ./nixos/modules/security/selinux;
+        selinux = {
+          imports = [ ./nixos/modules/security/selinux ];
+          nixpkgs.overlays = [ self.overlays.default ];
+        };
         default = self.nixosModules.selinux;
       };
 
       packages = forAllSystems (system: {
-        inherit (pkgsFor system) secilc selinux-policy-minimal nixos-selinux-setup;
+        inherit (pkgsFor system) secilc selinux-policy-minimal;
 
         # Measures the cost of labelling a desktop-sized closure. Large,
         # so it is not among the checks.
-        selinux-measure-desktop = (pkgsFor system).testers.runNixOSTest (
-          import ./nixos/tests/selinux/measure.nix { selinuxModule = self.nixosModules.selinux; }
-        );
+        selinux-measure-desktop = selinuxTest (pkgsFor system) ./nixos/tests/selinux/measure.nix;
       });
 
       formatter = forAllSystems (system: (pkgsFor system).nixfmt);
@@ -65,44 +77,28 @@
         in
         evalChecks
         // {
-          inherit (pkgs) secilc selinux-policy-minimal nixos-selinux-setup;
+          inherit (pkgs) secilc selinux-policy-minimal;
+          nixos-selinux-setup = pkgs.callPackage ./nixos/modules/security/selinux/setup { };
 
           selinux-smoke = pkgs.testers.runNixOSTest ./nixos/tests/selinux/smoke.nix;
 
-          selinux-permissive-boot = pkgs.testers.runNixOSTest (
-            import ./nixos/tests/selinux/permissive-boot.nix { selinuxModule = self.nixosModules.selinux; }
-          );
+          selinux-permissive-boot = selinuxTest pkgs ./nixos/tests/selinux/permissive-boot.nix;
 
-          selinux-enforcing = pkgs.testers.runNixOSTest (
-            import ./nixos/tests/selinux/enforcing.nix { selinuxModule = self.nixosModules.selinux; }
-          );
+          selinux-enforcing = selinuxTest pkgs ./nixos/tests/selinux/enforcing.nix;
 
-          selinux-switch-rollback = pkgs.testers.runNixOSTest (
-            import ./nixos/tests/selinux/switch-rollback.nix { selinuxModule = self.nixosModules.selinux; }
-          );
+          selinux-switch-rollback = selinuxTest pkgs ./nixos/tests/selinux/switch-rollback.nix;
 
-          selinux-recovery = pkgs.testers.runNixOSTest (
-            import ./nixos/tests/selinux/recovery.nix { selinuxModule = self.nixosModules.selinux; }
-          );
+          selinux-recovery = selinuxTest pkgs ./nixos/tests/selinux/recovery.nix;
 
-          selinux-ephemeral-root = pkgs.testers.runNixOSTest (
-            import ./nixos/tests/selinux/ephemeral-root.nix { selinuxModule = self.nixosModules.selinux; }
-          );
+          selinux-ephemeral-root = selinuxTest pkgs ./nixos/tests/selinux/ephemeral-root.nix;
 
-          selinux-refpolicy = pkgs.testers.runNixOSTest (
-            import ./nixos/tests/selinux/refpolicy.nix { selinuxModule = self.nixosModules.selinux; }
-          );
+          selinux-refpolicy = selinuxTest pkgs (import ./nixos/tests/selinux/refpolicy.nix { });
 
-          selinux-store-maintenance = pkgs.testers.runNixOSTest (
-            import ./nixos/tests/selinux/store-maintenance.nix { selinuxModule = self.nixosModules.selinux; }
-          );
+          selinux-store-maintenance = selinuxTest pkgs ./nixos/tests/selinux/store-maintenance.nix;
 
           # Not a pass/fail test of the policy: prints what it denies.
-          selinux-refpolicy-audit = pkgs.testers.runNixOSTest (
-            import ./nixos/tests/selinux/refpolicy.nix {
-              selinuxModule = self.nixosModules.selinux;
-              enforcing = false;
-            }
+          selinux-refpolicy-audit = selinuxTest pkgs (
+            import ./nixos/tests/selinux/refpolicy.nix { enforcing = false; }
           );
 
           formatting = pkgs.runCommand "check-formatting" { nativeBuildInputs = [ pkgs.nixfmt ]; } ''
