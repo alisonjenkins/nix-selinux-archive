@@ -152,8 +152,13 @@
             "systemd-logind.service": "systemd_logind_t",
             "systemd-udevd.service": "udev_t",
             "dbus.service": "system_dbusd_t",
+            "dhcpcd.service": "dhcpc_t",
         }.items():
             assert domain(unit) == expected, (unit, domain(unit))
+        gettys = machine.succeed("ps -C agetty -o label= | sort -u").strip()
+        print(gettys)
+        if strict:
+            assert gettys == "system_u:system_r:getty_t:s0", gettys
         # What confinement buys: unlike an unconfined service, sshd may
         # not read the shadow file or load a kernel module.
         for rule in [
