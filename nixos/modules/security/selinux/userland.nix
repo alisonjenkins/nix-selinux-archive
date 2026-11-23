@@ -27,6 +27,12 @@ let
       flag: if flag == "-Dselinux=disabled" then "-Dselinux=enabled" else flag
     ) old.mesonFlags;
     buildInputs = old.buildInputs ++ [ pkgs.libselinux ];
+    # pam_sepermit wants to create its lock directory under /var at
+    # install time. Point that at the output instead.
+    postPatch = (old.postPatch or "") + ''
+      sed -i "s|^    sepermit_lockdir,|    get_option('prefix') / 'share/empty-sepermit',|" \
+        modules/module-meson.build
+    '';
   });
 
   # Not in nixpkgs yet. The module must work without an overlay, because
