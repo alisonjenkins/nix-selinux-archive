@@ -31,15 +31,25 @@ in
     };
 
     type = lib.mkOption {
-      type = lib.types.str;
-      default = "minimal";
+      type = lib.types.enum [
+        "refpolicy"
+        "minimal"
+      ];
+      default = "refpolicy";
       description = ''
-        Name of the policy, written to {file}`/etc/selinux/config` as
-        `SELINUXTYPE` and used as the directory name under
-        {file}`/etc/selinux`.
-        `minimal` is a small unconfined-by-default policy
-        written for NixOS. `refpolicy` is the SELinux reference policy
-        with a NixOS module added (experimental).
+        Which policy to run.
+
+        `refpolicy` is the SELinux reference policy with a NixOS module:
+        system services run in the domains it has for them, and
+        {option}`security.selinux.services` confines more.
+
+        `minimal` is a small policy written for NixOS in which everything
+        is unconfined. It is for experiments and for writing a policy
+        from nothing, in CIL. Most other options of this module do not
+        apply to it.
+
+        The name is also written to {file}`/etc/selinux/config` as
+        `SELINUXTYPE`.
       '';
     };
 
@@ -148,6 +158,29 @@ in
           security.selinux.enable requires a kernel built with
           CONFIG_SECURITY_SELINUX=y, but ${kernel.name or "the configured kernel"}
           sets it to something else.
+        '';
+      }
+      {
+        assertion = cfg.type == "refpolicy" || cfg.booleans == { };
+        message = ''
+          security.selinux.booleans has no effect with
+          security.selinux.type = "minimal": that policy has no booleans.
+          Remove the setting or use the refpolicy type.
+        '';
+      }
+      {
+        assertion = cfg.type == "refpolicy" || !cfg.logAllDenials;
+        message = ''
+          security.selinux.logAllDenials has no effect with
+          security.selinux.type = "minimal": that policy hides no denials.
+        '';
+      }
+      {
+        assertion = cfg.type == "refpolicy" || !(cfg.loginContexts || cfg.dbusMediation);
+        message = ''
+          security.selinux.loginContexts and security.selinux.dbusMediation
+          need security.selinux.type = "refpolicy": the minimal policy has
+          no login mappings and no rules for the message bus.
         '';
       }
       {

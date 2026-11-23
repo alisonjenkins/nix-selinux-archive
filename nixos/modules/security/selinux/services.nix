@@ -12,21 +12,182 @@ let
   cfg = config.security.selinux;
   refpolicy = cfg.type == "refpolicy";
 
-  # The first word of the unit's ExecStart, without systemd's prefixes.
-  dhcpcdProgram =
+  # The program a systemd service starts: the first word of its
+  # ExecStart, without systemd's prefixes. Null when it cannot be told.
+  programOf =
+    unitName:
     let
-      unit = config.systemd.services.dhcpcd or null;
-      command = unit.serviceConfig.ExecStart or null;
+      unit = config.systemd.services.${unitName} or null;
+      start = unit.serviceConfig.ExecStart or null;
+      first = if lib.isList start then (if start == [ ] then null else lib.head start) else start;
+      command = if first == null then null else "${first}";
       program = builtins.match "[@!+:-]*(/nix/store/[^ ]+).*" command;
     in
-    if unit != null && (unit.enable or true) && lib.isString command && program != null then
+    if unit != null && (unit.enable or true) && command != null && program != null then
       # match drops the string's context; the policy build needs it to
       # see the file.
-      lib.addContextFrom command (builtins.head program)
+      lib.addContextFrom command (lib.head program)
     else
       null;
+
+  dhcpcdProgram = programOf "dhcpcd";
+
+  # A name usable in policy identifiers.
+  identifier = lib.replaceStrings [ "-" "." "@" ":" ] [ "_" "_" "_" "_" ];
+
+  services = lib.filterAttrs (_: service: service.enable) cfg.services;
+  serviceProgram =
+    service: if service.program != null then service.program else programOf service.unit;
+
+  # Units with a domain of their own, for `nixos-selinux status`.
+  builtinUnits =
+    lib.optionalAttrs (cfg.confine.sshd && config.services.openssh.enable) { sshd = "sshd_t"; }
+    // lib.optionalAttrs (cfg.confine.nscd && config.services.nscd.enable) { nscd = "nscd_t"; }
+    // lib.optionalAttrs (cfg.confine.nix && config.nix.enable) { nix-daemon = "nix_daemon_t"; }
+    // lib.optionalAttrs (cfg.confine.dhcpcd && dhcpcdProgram != null) { dhcpcd = "dhcpc_t"; }
+    // lib.optionalAttrs refpolicy {
+      systemd-journald = "syslogd_t";
+      systemd-logind = "systemd_logind_t";
+      systemd-udevd = "udev_t";
+    }
+    // lib.optionalAttrs (refpolicy && config.services.dbus.enable) {
+      ${if config.services.dbus.implementation == "broker" then "dbus-broker" else "dbus"} =
+        "system_dbusd_t";
+    };
+
+  builtinContexts = {
+    sshd = lib.mkIf (cfg.confine.sshd && config.services.openssh.enable) {
+      serviceConfig.SELinuxContext = "system_u:system_r:sshd_t:s0";
+    };
+    nscd = lib.mkIf (cfg.confine.nscd && config.services.nscd.enable) {
+      serviceConfig.SELinuxContext = "system_u:system_r:nscd_t:s0";
+    };
+    nix-daemon = lib.mkIf (cfg.confine.nix && config.nix.enable) {
+      serviceConfig.SELinuxContext = "system_u:system_r:nix_daemon_t:s0";
+    };
+  };
 in
 {
+  options.security.selinux.services = lib.mkOption {
+    default = { };
+    example = lib.literalExpression ''
+      {
+        # A service of your own, in a new domain that may only log.
+        myservice.rules = '''
+          logging_send_syslog_msg(myservice_t)
+        ''';
+
+        # A service the reference policy already has a domain for.
+        nginx = {
+          domain = "httpd_t";
+          createDomain = false;
+        };
+      }
+    '';
+    description = ''
+      systemd services to confine, by service name. For each one the
+      module labels the program the service starts, makes systemd start
+      it in its domain, and compiles the rules given here into the
+      policy. A service that is not listed here or in
+      {option}`security.selinux.confine` runs unconfined.
+
+      Needs the `refpolicy` policy type.
+    '';
+    type = lib.types.attrsOf (
+      lib.types.submodule (
+        { name, config, ... }:
+        {
+          options = {
+            enable = lib.mkOption {
+              type = lib.types.bool;
+              default = true;
+              description = "Whether to confine this service.";
+            };
+
+            unit = lib.mkOption {
+              type = lib.types.str;
+              default = name;
+              description = "Name of the systemd service, without `.service`.";
+            };
+
+            domain = lib.mkOption {
+              type = lib.types.str;
+              default = "${identifier name}_t";
+              defaultText = lib.literalExpression ''"''${name}_t"'';
+              description = ''
+                SELinux type the service's processes run as. By convention
+                it ends in `_t`.
+              '';
+            };
+
+            createDomain = lib.mkOption {
+              type = lib.types.bool;
+              default = true;
+              description = ''
+                Create {option}`domain` as a new domain that systemd may
+                start. A new domain may do almost nothing until
+                {option}`rules` allows it. Turn this off to use a domain
+                the policy already has, such as `httpd_t`.
+              '';
+            };
+
+            rules = lib.mkOption {
+              type = lib.types.lines;
+              default = "";
+              example = ''
+                logging_send_syslog_msg(myservice_t)
+                corenet_tcp_bind_generic_node(myservice_t)
+              '';
+              description = ''
+                What the domain may do, in the reference policy's
+                language: allow rules and calls of its interfaces.
+                `nixos-selinux denials --rules` prints rules for what was
+                denied.
+              '';
+            };
+
+            permissive = lib.mkOption {
+              type = lib.types.bool;
+              default = false;
+              description = ''
+                Log what the policy would deny this service instead of
+                denying it, while the rest of the system stays enforcing.
+                Use it to collect the rules a new service needs, then
+                turn it off.
+              '';
+            };
+
+            program = lib.mkOption {
+              type = lib.types.nullOr lib.types.path;
+              default = null;
+              defaultText = lib.literalMD "the program in the service's `ExecStart`";
+              description = ''
+                The file in the Nix store that the service starts. Set it
+                when the module cannot tell it from the unit.
+              '';
+            };
+
+            programType = lib.mkOption {
+              type = lib.types.str;
+              default = "${lib.removeSuffix "_t" config.domain}_exec_t";
+              defaultText = lib.literalMD "{option}`domain` with `_t` replaced by `_exec_t`";
+              description = ''
+                SELinux type for the program file. Starting a file of this
+                type is what moves the service into its domain.
+              '';
+            };
+          };
+        }
+      )
+    );
+  };
+
+  options.security.selinux.confinedUnits = lib.mkOption {
+    type = lib.types.attrsOf lib.types.str;
+    internal = true;
+    description = "systemd services and the domain each is expected to run in.";
+  };
+
   options.security.selinux.confine = {
     sshd = lib.mkOption {
       type = lib.types.bool;
@@ -104,28 +265,77 @@ in
           -> refpolicy;
         message = "security.selinux.confine.* needs security.selinux.type = \"refpolicy\".";
       }
-    ];
+      {
+        assertion = services != { } -> refpolicy;
+        message = "security.selinux.services needs security.selinux.type = \"refpolicy\".";
+      }
+    ]
+    ++ lib.mapAttrsToList (name: service: {
+      assertion = serviceProgram service != null;
+      message = ''
+        security.selinux.services.${name}: cannot tell which program
+        systemd.services.${service.unit} starts${
+          lib.optionalString (
+            !(config.systemd.services ? ${service.unit})
+          ) ", because this configuration has no such service"
+        }. Set security.selinux.services.${name}.program to the
+        file in the Nix store, or .unit to the service's name.
+      '';
+    }) services;
+
+    security.selinux.confinedUnits =
+      builtinUnits // lib.mapAttrs' (_: service: lib.nameValuePair service.unit service.domain) services;
+
+    security.selinux.modules = lib.mapAttrs' (
+      name: service:
+      lib.nameValuePair "nixos_service_${identifier name}" {
+        te =
+          (
+            if service.createDomain then
+              ''
+                type ${service.domain};
+                type ${service.programType};
+                init_daemon_domain(${service.domain}, ${service.programType})
+              ''
+            else
+              ''
+                gen_require(`
+                  type ${service.domain};
+                ')
+              ''
+          )
+          + lib.optionalString service.permissive ''
+            permissive ${service.domain};
+          ''
+          + service.rules;
+      }
+    ) services;
 
     # Name the domain in the unit as well. The label on the program is
     # then necessary but not sufficient: if it is ever missing, the
     # service fails to start instead of running unconfined.
-    systemd.services = {
-      sshd = lib.mkIf (cfg.confine.sshd && config.services.openssh.enable) {
-        serviceConfig.SELinuxContext = "system_u:system_r:sshd_t:s0";
-      };
-      nscd = lib.mkIf (cfg.confine.nscd && config.services.nscd.enable) {
-        serviceConfig.SELinuxContext = "system_u:system_r:nscd_t:s0";
-      };
-      nix-daemon = lib.mkIf (cfg.confine.nix && config.nix.enable) {
-        serviceConfig.SELinuxContext = "system_u:system_r:nix_daemon_t:s0";
-      };
-    };
+    systemd.services = lib.mkMerge [
+      (lib.mapAttrs' (
+        _: service:
+        lib.nameValuePair service.unit {
+          serviceConfig.SELinuxContext = "system_u:system_r:${service.domain}:s0";
+        }
+      ) services)
+      builtinContexts
+    ];
 
     security.selinux.booleans = lib.mkIf refpolicy {
       nix_confine_builds = cfg.confine.nixBuilds;
     };
 
     security.selinux.entrypoints = lib.mkMerge [
+      (lib.mapAttrs' (
+        name: service:
+        lib.nameValuePair "service-${name}" {
+          path = serviceProgram service;
+          type = service.programType;
+        }
+      ) (lib.filterAttrs (_: service: serviceProgram service != null) services))
       (lib.mkIf cfg.confine.getty {
         agetty = {
           path = lib.getExe' pkgs.util-linux "agetty";

@@ -34,6 +34,29 @@ let
         modules/module-meson.build
     '';
   });
+
+  # The command people use day to day; see the manual chapter.
+  nixosSelinux = pkgs.writeShellApplication {
+    name = "nixos-selinux";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.gawk
+      pkgs.gnugrep
+      config.systemd.package
+    ];
+    text =
+      lib.replaceStrings
+        [ "@type@" "@mode@" "@units@" "@setup@" ]
+        [
+          cfg.type
+          cfg.mode
+          "${pkgs.writeText "selinux-confined-units" (
+            lib.concatStrings (lib.mapAttrsToList (unit: domain: "${unit} ${domain}\n") cfg.confinedUnits)
+          )}"
+          "/run/current-system/selinux-setup"
+        ]
+        (builtins.readFile ./nixos-selinux.sh);
+  };
 in
 {
   config = lib.mkIf cfg.enable {
@@ -42,6 +65,7 @@ in
     systemd.package = pkgs.systemd.override { withSelinux = true; };
 
     environment.systemPackages = [
+      nixosSelinux
       # `ls -Z`, `id -Z`, `cp --preserve=context` and friends.
       (lib.hiPrio selinuxCoreutils)
       pkgs.libselinux # getenforce, selinuxenabled, getfilecon, ...

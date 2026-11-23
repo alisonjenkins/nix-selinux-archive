@@ -30,6 +30,7 @@ in
       imports = [ ephemeral ];
       security.selinux = {
         enable = true;
+        type = "minimal";
         mode = "enforcing";
       };
     };
@@ -38,7 +39,6 @@ in
       imports = [ ephemeral ];
       security.selinux = {
         enable = true;
-        type = "refpolicy";
         mode = "enforcing";
       };
     };

@@ -11,6 +11,7 @@
       ];
 
       security.selinux.enable = true;
+      security.selinux.type = "minimal";
 
       # A type no domain is allowed to touch, to provoke a denial.
       security.selinux.modules.test.cil = ''
