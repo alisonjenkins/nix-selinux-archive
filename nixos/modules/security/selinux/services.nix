@@ -50,6 +50,16 @@ in
           }
         )
       ))
+      # The password checking helper. Confined programs such as sshd may
+      # not read the shadow file themselves; they run this helper, which
+      # enters its own domain. It is reached through a setuid wrapper,
+      # which keeps a generic type and only executes this file.
+      (lib.mkIf refpolicy {
+        pam-unix-chkpwd = {
+          path = "${config.security.pam.package}/bin/unix_chkpwd";
+          type = "chkpwd_exec_t";
+        };
+      })
       (lib.mkIf (cfg.confine.nscd && config.services.nscd.enable) {
         nscd = {
           path =

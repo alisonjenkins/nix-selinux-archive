@@ -75,3 +75,13 @@ optional_policy(`
 	unconfined_shell_domtrans(sshd_t)
 	allow sshd_t unconfined_t:process { noatsecure rlimitinh siginh };
 ')
+
+# NixOS runs nsncd in place of nscd. It is a threaded Rust program and
+# asks for its scheduling policy at start.
+optional_policy(`
+	gen_require(`
+		type nscd_t;
+	')
+
+	allow nscd_t self:process getsched;
+')
